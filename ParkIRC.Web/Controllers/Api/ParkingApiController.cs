@@ -105,7 +105,7 @@ namespace ParkIRC.Controllers.Api
                     VehicleNumber = t.Vehicle.VehicleNumber,
                     VehicleType = t.Vehicle.VehicleType,
                     EntryTime = t.EntryTime,
-                    ExitTime = t.ExitTime,
+                    ExitTime = t.ExitTime ?? DateTime.Now,
                     TotalAmount = t.TotalAmount
                 })
                 .ToListAsync();
