@@ -23,10 +23,12 @@ namespace ParkIRC.Web.ViewModels
         public string TicketNumber { get; set; } = string.Empty;
         public string VehicleNumber { get; set; } = string.Empty;
         public string VehicleType { get; set; } = string.Empty;
+        public string PlateNumber { get; set; } = string.Empty;
         public DateTime EntryTime { get; set; }
         public DateTime? ExitTime { get; set; }
-        public TimeSpan Duration { get; set; }
+        public string Duration { get; set; } = string.Empty;
         public decimal Amount { get; set; }
+        public decimal TotalAmount { get; set; }
         public string PaymentStatus { get; set; } = string.Empty;
         public string PaymentMethod { get; set; } = string.Empty;
         public DateTime? PaymentTime { get; set; }
@@ -36,5 +38,12 @@ namespace ParkIRC.Web.ViewModels
         public string ExitOperator { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public bool IsPaid { get; set; }
+        public VehicleInfo Vehicle { get; set; } = new VehicleInfo();
+    }
+
+    public class VehicleInfo
+    {
+        public string VehicleNumber { get; set; } = string.Empty;
+        public string VehicleType { get; set; } = string.Empty;
     }
 }

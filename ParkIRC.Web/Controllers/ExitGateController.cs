@@ -104,7 +104,7 @@ namespace ParkIRC.Controllers
                 // Update transaksi
                 transaction.ExitTime = exitTime;
                 transaction.ExitPhotoPath = request.PhotoPath;
-                transaction.Duration = duration;
+                transaction.Duration = (decimal)duration.TotalHours;
                 transaction.Cost = cost;
                 transaction.UpdatedAt = DateTime.Now;
 
@@ -129,7 +129,7 @@ namespace ParkIRC.Controllers
                     OperatorId = User.Identity.Name,
                     TransactionId = transaction.Id,
                     Cost = cost,
-                    Duration = duration,
+                    Duration = (decimal)duration.TotalHours,
                     PaymentMethod = request.PaymentMethod,
                     PaymentStatus = "Completed",
                     Notes = request.Notes

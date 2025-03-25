@@ -138,7 +138,7 @@
                                 <td>@exit.PlateNumber</td>
                                 <td>@exit.VehicleType</td>
                                 <td>@exit.ExitTime.ToString("HH:mm:ss")</td>
-                                <td>@(Math.Round(exit.Duration.TotalHours, 1)) jam</td>
+                                <td>@(Math.Round(exit.Duration, 1)) jam</td>
                                 <td>Rp @exit.Cost.ToString("N0")</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary print-again" 

@@ -98,26 +98,25 @@ namespace ParkIRC.Services
                 TransactionNumber = GenerateTransactionNumber(),
                 EntryTime = vehicle.EntryTime,
                 ExitTime = exitTime,
-                HourlyRate = hourlyRate,
-                Amount = totalAmount,
+                Duration = (decimal)duration.TotalHours,
                 TotalAmount = totalAmount,
-                PaymentStatus = "Paid",
-                PaymentMethod = "Cash",
-                PaymentTime = exitTime,
-                Vehicle = vehicle,
-                ParkingSpace = vehicle.ParkingSpace
+                PaymentStatus = "Pending",
+                Status = "Completed"
             };
 
+            // Update vehicle status
+            vehicle.IsParked = false;
+            vehicle.ParkingSpaceId = null;
+            vehicle.EntryTime = default;
+
+            // Update parking space status
             if (vehicle.ParkingSpace != null)
             {
                 vehicle.ParkingSpace.IsOccupied = false;
-                vehicle.ParkingSpace.CurrentVehicle = null;
                 vehicle.ParkingSpace.LastOccupiedTime = exitTime;
             }
-            vehicle.ParkingSpace = null;
-            vehicle.ParkingSpaceId = null;
 
-            _context.ParkingTransactions.Add(transaction);
+            await _context.ParkingTransactions.AddAsync(transaction);
             await _context.SaveChangesAsync();
 
             return transaction;
@@ -144,21 +143,16 @@ namespace ParkIRC.Services
 
         public async Task<decimal> CalculateFee(Vehicle vehicle)
         {
-            if (vehicle == null || vehicle.EntryTime == default)
+            if (vehicle == null)
             {
-                throw new ArgumentException("Invalid vehicle or entry time");
+                throw new ArgumentNullException(nameof(vehicle));
             }
 
-            var duration = DateTime.UtcNow - vehicle.EntryTime;
+            var exitTime = DateTime.UtcNow;
+            var duration = exitTime - vehicle.EntryTime;
             var hours = Math.Ceiling(duration.TotalHours);
-            var space = await _context.ParkingSpaces.FindAsync(vehicle.ParkingSpaceId);
-            
-            if (space == null)
-            {
-                throw new InvalidOperationException("Vehicle is not assigned to a parking space");
-            }
-
-            return (decimal)hours * space.HourlyRate;
+            var hourlyRate = vehicle.ParkingSpace?.HourlyRate ?? 0m;
+            return (decimal)hours * hourlyRate;
         }
 
         // New methods for Gate API

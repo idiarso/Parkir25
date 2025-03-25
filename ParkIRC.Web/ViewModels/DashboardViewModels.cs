@@ -7,10 +7,16 @@ namespace ParkIRC.Web.ViewModels
     {
         public string VehicleType { get; set; } = string.Empty;
         public string LicensePlate { get; set; } = string.Empty;
+        public string PlateNumber { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
         public string ActionType { get; set; } = string.Empty;
         public decimal Fee { get; set; }
+        public decimal Cost { get; set; }
         public string ParkingType { get; set; } = string.Empty;
+        public string VehicleNumber { get; set; } = string.Empty;
+        public DateTime? LastActivity { get; set; }
+        public DateTime? EntryTime { get; set; }
+        public DateTime? ExitTime { get; set; }
     }
 
     public class OccupancyData
@@ -49,6 +55,10 @@ namespace ParkIRC.Web.ViewModels
         public int AvailableParkingSpaces { get; set; }
         public int OccupiedParkingSpaces { get; set; }
         public double OccupancyRate { get; set; }
+        
+        // Properties referenced in views
+        public int TotalSpaces => TotalParkingSpaces;
+        public int AvailableSpaces => AvailableParkingSpaces;
 
         // Transaction Information
         public int TotalTransactionsToday { get; set; }
@@ -65,5 +75,12 @@ namespace ParkIRC.Web.ViewModels
         // Analytics
         public List<OccupancyData> HourlyOccupancy { get; set; } = new();
         public List<VehicleDistributionData> VehicleDistribution { get; set; } = new();
+
+        // Pagination
+        public bool HasPreviousPage { get; set; }
+        public bool HasNextPage { get; set; }
+        public int CurrentPage { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages { get; set; }
     }
 } 

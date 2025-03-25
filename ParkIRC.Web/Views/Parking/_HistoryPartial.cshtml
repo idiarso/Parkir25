@@ -42,8 +42,8 @@
                 
                 <tr>
                     <td>@transaction.TransactionNumber</td>
-                    <td>@transaction.Vehicle?.VehicleNumber</td>
-                    <td>@transaction.Vehicle?.VehicleType</td>
+                    <td>@transaction.VehicleNumber</td>
+                    <td>@transaction.VehicleType</td>
                     <td>@transaction.EntryTime.ToString("dd/MM/yyyy HH:mm")</td>
                     <td>@(transaction.ExitTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
                     <td>@(transaction.ExitTime.HasValue ? $"{duration.Hours:D2}:{duration.Minutes:D2}" : "-")</td>

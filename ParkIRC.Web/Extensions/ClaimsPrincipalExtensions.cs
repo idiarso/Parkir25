@@ -101,7 +101,16 @@ namespace ParkIRC.Extensions
 
         public static string GetOperatorId(this ClaimsPrincipal principal)
         {
-            return principal?.FindFirst("OperatorId")?.Value ?? string.Empty;
+            if (principal == null)
+                return string.Empty;
+                
+            // First try to get the NameIdentifier claim which typically contains the user ID
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrEmpty(userId))
+                return userId;
+                
+            // Fall back to the name claim if NameIdentifier is not available
+            return principal.FindFirstValue(ClaimTypes.Name) ?? string.Empty;
         }
 
         public static bool IsStaff(this ClaimsPrincipal principal)
@@ -182,6 +191,15 @@ namespace ParkIRC.Extensions
         {
             var lockoutEnd = principal.GetLockoutEndDate();
             return lockoutEnd.HasValue && lockoutEnd.Value > DateTime.UtcNow;
+        }
+
+        public static string FindFirstValue(this ClaimsPrincipal principal, string claimType)
+        {
+            if (principal == null)
+                return null;
+                
+            var claim = principal.FindFirst(claimType);
+            return claim?.Value;
         }
     }
 } 

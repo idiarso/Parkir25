@@ -14,6 +14,7 @@ namespace ParkIRC.Services
         Task<CameraSettings> GetSettingsAsync();
         Task<bool> UpdateSettingsAsync(CameraSettings settings);
         Task<bool> TestConnectionAsync();
+        Task<byte[]> TakePhoto();
     }
 
     public class CameraService : ICameraService
@@ -106,6 +107,27 @@ namespace ParkIRC.Services
             {
                 _logger.LogError(ex, "Failed to test camera connection");
                 return false;
+            }
+        }
+
+        public async Task<byte[]> TakePhoto()
+        {
+            if (!_isInitialized)
+            {
+                await InitializeAsync();
+            }
+
+            try
+            {
+                _logger.LogInformation("Taking photo...");
+                // Implementation for photo capture
+                // For demo purposes, return an empty byte array
+                return new byte[0];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to take photo");
+                throw;
             }
         }
     }

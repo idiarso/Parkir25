@@ -35,7 +35,8 @@ namespace ParkIRC.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal Cost { get; set; }
 
-        public TimeSpan Duration { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Duration { get; set; }
 
         [Required]
         [StringLength(50)]

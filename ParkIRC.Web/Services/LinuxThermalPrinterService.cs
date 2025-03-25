@@ -16,9 +16,9 @@ namespace ParkIRC.Services
     /// </summary>
     public class LinuxThermalPrinterService : IDisposable
     {
-        private readonly ILogger<LinuxThermalPrinterService> _logger;
+        private readonly ILogger _logger;
         private readonly IConfiguration _configuration;
-        private SerialPort _serialPort;
+        private System.IO.Ports.SerialPort _serialPort;
         private bool _isInitialized = false;
         private string _companyName = "SISTEM PARKIR RSI BANJARNEGARA";
         private string _address = "Jalan Raya Limpung - Bawang Km 08";
@@ -31,10 +31,17 @@ namespace ParkIRC.Services
         private const byte LF = 0x0A;
         private const byte CR = 0x0D;
         
-        public LinuxThermalPrinterService(ILogger<LinuxThermalPrinterService> logger, IConfiguration configuration)
+        private readonly string _printerPort;
+        private readonly int _baudRate;
+        
+        public LinuxThermalPrinterService(
+            ILogger logger,
+            IConfiguration configuration)
         {
             _logger = logger;
             _configuration = configuration;
+            _printerPort = _configuration["Printer:Port"] ?? "/dev/ttyUSB0";
+            _baudRate = int.TryParse(_configuration["Printer:BaudRate"], out int baudRate) ? baudRate : 9600;
         }
         
         public async Task<bool> InitializeAsync()
@@ -73,7 +80,7 @@ namespace ParkIRC.Services
                 // Initialize serial port
                 _serialPort = new SerialPort(portName)
                 {
-                    BaudRate = 9600,
+                    BaudRate = _baudRate,
                     DataBits = 8,
                     Parity = Parity.None,
                     StopBits = StopBits.One,
@@ -494,9 +501,9 @@ namespace ParkIRC.Services
                 ms.WriteByte(LF);
                 
                 // Duration (if exit time is set)
-                if (transaction.ExitTime != default)
+                if (transaction.ExitTime.HasValue)
                 {
-                    TimeSpan duration = transaction.ExitTime - transaction.EntryTime;
+                    TimeSpan duration = transaction.ExitTime.Value - transaction.EntryTime;
                     WriteText(ms, $"DURASI        : {duration.Hours:00}:{duration.Minutes:00}");
                     ms.WriteByte(LF);
                 }

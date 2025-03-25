@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.SignalR;
 using ParkIRC.Hubs;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using ParkIRC.Extensions;
 
 namespace ParkIRC.Controllers
 {
@@ -75,7 +76,7 @@ namespace ParkIRC.Controllers
                 .Take(10)
                 .Select(t => new RecentTransactionViewModel
                 {
-                    Id = t.Id,
+                    Id = t.Id.ToString(),
                     TicketNumber = t.TicketNumber,
                     VehicleNumber = t.Vehicle.VehicleNumber,
                     VehicleType = t.Vehicle.VehicleType,
@@ -221,12 +222,12 @@ namespace ParkIRC.Controllers
                 
                 // Update space status
                 availableSpace.IsOccupied = true;
-                availableSpace.CurrentVehicle = request.VehicleNumber;
+                availableSpace.CurrentVehicleId = vehicle.Id;
 
                 await _context.SaveChangesAsync();
 
                 // Print ticket
-                await _printerService.PrintTicketAsync(ticket.TicketNumber);
+                await _printerService.PrintTicketAsync(ticket.TicketNumber, request.VehicleNumber, DateTime.Now, request.VehicleType);
 
                 return Ok(new { 
                     ticketNumber = ticket.TicketNumber,

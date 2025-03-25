@@ -38,17 +38,17 @@ namespace ParkIRC.Controllers
                 var transactions = await _context.ParkingTransactions
                     .Include(t => t.Vehicle)
                     .Include(t => t.ParkingSpace)
-                    .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                    .Where(t => t.EntryTime.Date >= startDate.Value.Date && t.EntryTime.Date <= endDate.Value.Date)
                     .OrderByDescending(t => t.EntryTime)
                     .Select(t => new TransactionHistoryItem
                     {
                         Id = t.TransactionNumber,
                         TicketNumber = t.TicketNumber,
-                        PlateNumber = t.Vehicle?.VehicleNumber ?? string.Empty,
-                        VehicleType = t.Vehicle?.VehicleType ?? string.Empty,
+                        PlateNumber = t.Vehicle != null ? t.Vehicle.VehicleNumber : string.Empty,
+                        VehicleType = t.Vehicle != null ? t.Vehicle.VehicleType : string.Empty,
                         EntryTime = t.EntryTime,
                         ExitTime = t.ExitTime,
-                        Duration = t.ExitTime.HasValue ? t.ExitTime.Value - t.EntryTime : TimeSpan.Zero,
+                        Duration = t.ExitTime.HasValue ? $"{(decimal)(t.ExitTime.Value - t.EntryTime).TotalHours:F1} jam" : "-",
                         Amount = t.TotalAmount,
                         PaymentStatus = t.PaymentStatus,
                         PaymentMethod = t.PaymentMethod,
@@ -67,8 +67,8 @@ namespace ParkIRC.Controllers
                     Transactions = transactions,
                     StartDate = startDate.Value,
                     EndDate = endDate.Value,
-                    TotalRevenue = transactions.Sum(t => decimal.Parse(t.TotalAmount.Replace("$", "").Replace(",", ""))),
-                    TotalTransactions = transactions.Count
+                    TotalRevenue = transactions.Sum(t => t.Amount),
+                    TotalTransactions = transactions.Count()
                 };
 
                 return View(model);
@@ -91,27 +91,44 @@ namespace ParkIRC.Controllers
                 var transactions = await _context.ParkingTransactions
                     .Include(t => t.Vehicle)
                     .Include(t => t.ParkingSpace)
-                    .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                    .Where(t => t.EntryTime.Date >= startDate.Value.Date && t.EntryTime.Date <= endDate.Value.Date)
                     .OrderByDescending(t => t.EntryTime)
                     .Select(t => new
                     {
                         VehicleNumber = t.Vehicle.VehicleNumber,
                         EntryTime = t.EntryTime.ToString("dd/MM/yyyy HH:mm:ss"),
                         ExitTime = t.ExitTime.HasValue ? t.ExitTime.Value.ToString("dd/MM/yyyy HH:mm:ss") : "-",
-                        Duration = t.Duration.HasValue ? $"{Math.Floor(t.Duration.Value.TotalHours)}h {t.Duration.Value.Minutes}m" : "-",
-                        TotalAmount = t.TotalAmount.ToString("C"),
-                        Status = t.IsPaid ? "Paid" : "Unpaid"
+                        Duration = t.ExitTime.HasValue ? (t.ExitTime.Value - t.EntryTime).ToString("hh\\:mm\\:ss") : "-",
+                        Amount = t.TotalAmount,
+                        PaymentStatus = t.PaymentStatus,
+                        PaymentMethod = t.PaymentMethod,
+                        PaymentTime = t.PaymentTime.HasValue ? t.PaymentTime.Value.ToString("dd/MM/yyyy HH:mm:ss") : "-",
+                        EntryGate = t.EntryPoint,
+                        ExitGate = t.ExitPoint,
+                        EntryOperator = t.OperatorId,
+                        ExitOperator = t.ExitOperatorId,
+                        Status = t.Status
                     })
                     .ToListAsync();
 
-                if (format.Equals("excel", StringComparison.OrdinalIgnoreCase))
+                byte[] fileBytes;
+                string fileName;
+                string contentType;
+
+                if (format.ToLower() == "pdf")
                 {
-                    return File(GenerateExcel(transactions), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"parking_history_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
+                    fileBytes = GeneratePdf(transactions);
+                    fileName = $"parking_history_{startDate.Value:yyyyMMdd}_{endDate.Value:yyyyMMdd}.pdf";
+                    contentType = "application/pdf";
                 }
                 else
                 {
-                    return File(GeneratePdf(transactions), "application/pdf", $"parking_history_{DateTime.Now:yyyyMMddHHmmss}.pdf");
+                    fileBytes = GenerateExcel(transactions);
+                    fileName = $"parking_history_{startDate.Value:yyyyMMdd}_{endDate.Value:yyyyMMdd}.xlsx";
+                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 }
+
+                return File(fileBytes, contentType, fileName);
             }
             catch (Exception ex)
             {
@@ -162,7 +179,7 @@ namespace ParkIRC.Controllers
                     worksheet.Cells[row, 2].Value = item.EntryTime;
                     worksheet.Cells[row, 3].Value = item.ExitTime;
                     worksheet.Cells[row, 4].Value = item.Duration;
-                    worksheet.Cells[row, 5].Value = item.TotalAmount;
+                    worksheet.Cells[row, 5].Value = item.Amount;
                     worksheet.Cells[row, 6].Value = item.Status;
                     row++;
                 }
@@ -210,7 +227,7 @@ namespace ParkIRC.Controllers
                     table.AddCell(new PdfPCell(new Phrase(item.EntryTime, cellFont)));
                     table.AddCell(new PdfPCell(new Phrase(item.ExitTime, cellFont)));
                     table.AddCell(new PdfPCell(new Phrase(item.Duration, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.TotalAmount, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.Amount, cellFont)));
                     table.AddCell(new PdfPCell(new Phrase(item.Status, cellFont)));
                 }
 

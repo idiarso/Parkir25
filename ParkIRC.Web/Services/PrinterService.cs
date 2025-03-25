@@ -13,6 +13,9 @@ using Microsoft.Extensions.Configuration;
 using ParkIRC.Data;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.IO;
+using System.Linq;
+using System.Threading;
 
 namespace ParkIRC.Services
 {
@@ -537,7 +540,7 @@ namespace ParkIRC.Services
                         {
                             serialPort.Open();
                             string printData = FormatTicketData(ticketData);
-                            await serialPort.WriteAsync(printData);
+                            serialPort.Write(printData);
                             serialPort.Close();
                         }
                     }
@@ -561,6 +564,38 @@ namespace ParkIRC.Services
             {
                 _printerStatuses[status.Id] = status;
             }
+        }
+
+        private string FormatTicketData(TicketData ticketData)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.AppendLine("\x1B@");  // Initialize printer
+            builder.AppendLine("\x1B!8");  // Bold text
+            builder.AppendLine("       PARKIR TICKET       ");
+            builder.AppendLine("\x1B!0");  // Normal text
+            builder.AppendLine("-------------------------");
+            builder.AppendLine($"Ticket: {ticketData.TicketNumber}");
+            builder.AppendLine($"Plate: {ticketData.VehicleNumber}");
+            builder.AppendLine($"Entry: {ticketData.EntryTime}");
+            
+            if (!string.IsNullOrEmpty(ticketData.ExitTime))
+            {
+                builder.AppendLine($"Exit: {ticketData.ExitTime}");
+                builder.AppendLine($"Amount: {ticketData.Amount}");
+            }
+            
+            builder.AppendLine("-------------------------");
+            
+            // Add barcode if available
+            if (!string.IsNullOrEmpty(ticketData.Barcode))
+            {
+                builder.AppendLine($"\x1Dk{(char)4}{(char)ticketData.Barcode.Length}{ticketData.Barcode}");
+            }
+            
+            builder.AppendLine("\n\n\n\n");  // Feed paper
+            builder.AppendLine("\x1Bd\x04"); // Paper cut
+            
+            return builder.ToString();
         }
 
         public Dictionary<string, PrinterStatus> GetAllPrinterStatus()

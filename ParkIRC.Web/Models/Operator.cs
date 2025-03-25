@@ -10,6 +10,7 @@ namespace ParkIRC.Models
         public Operator()
         {
             Shifts = new List<Shift>();
+            Transactions = new List<ParkingTransaction>();
         }
 
         [Required]
@@ -40,6 +41,14 @@ namespace ParkIRC.Models
         
         public string? PhotoPath { get; set; }
         
+        public string? Position { get; set; }
+        
+        public string? GateId { get; set; }
+        
+        public string? Notes { get; set; }
+        
         public virtual ICollection<Shift> Shifts { get; set; }
+        
+        public virtual ICollection<ParkingTransaction> Transactions { get; set; }
     }
 } 

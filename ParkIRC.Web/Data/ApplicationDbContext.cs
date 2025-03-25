@@ -216,29 +216,37 @@ namespace ParkIRC.Data
                 .WithOne(t => t.Operator)
                 .HasForeignKey(t => t.OperatorId);
 
-            // Seed operators from users
-            var operators = builder.Entity<ApplicationUser>()
-                .HasData(new ApplicationUser[]
+            // Seed operators from users - converted to use separate seeding instead of implicit conversion
+            builder.Entity<ApplicationUser>()
+                .HasData(new ApplicationUser
                 {
-                    new ApplicationUser
-                    {
-                        Id = "1",
-                        UserName = "admin",
-                        NormalizedUserName = "ADMIN",
-                        Email = "admin@example.com",
-                        NormalizedEmail = "ADMIN@EXAMPLE.COM",
-                        EmailConfirmed = true,
-                        SecurityStamp = Guid.NewGuid().ToString()
-                    }
+                    Id = "1",
+                    UserName = "admin",
+                    NormalizedUserName = "ADMIN",
+                    Email = "admin@example.com",
+                    NormalizedEmail = "ADMIN@EXAMPLE.COM",
+                    EmailConfirmed = true,
+                    SecurityStamp = Guid.NewGuid().ToString(),
+                    FirstName = "Admin",
+                    LastName = "User",
+                    IsOperator = true
                 });
 
-            // Convert users to operators
+            // Seed administrators separately
             builder.Entity<Operator>()
                 .HasData(new Operator
                 {
-                    Id = "1",
-                    Name = "Admin",
-                    IsActive = true
+                    Id = "2",
+                    UserName = "systemadmin",
+                    NormalizedUserName = "SYSTEMADMIN",
+                    Name = "System Admin",
+                    FullName = "System Administrator",
+                    Email = "sysadmin@example.com",
+                    NormalizedEmail = "SYSADMIN@EXAMPLE.COM",
+                    IsActive = true,
+                    JoinDate = DateTime.UtcNow,
+                    SecurityStamp = Guid.NewGuid().ToString(),
+                    EmailConfirmed = true
                 });
         }
     }

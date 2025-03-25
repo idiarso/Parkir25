@@ -12,6 +12,7 @@ namespace ParkIRC.Services
         Task<bool> DeleteImageAsync(string imagePath);
         Task<string> GetImagePathAsync(string fileName, string folder);
         Task<long> GetStorageUsageAsync();
+        Task<string> SaveImage(string fileName, byte[] imageData);
     }
 
     public class StorageService : IStorageService
@@ -109,6 +110,36 @@ namespace ParkIRC.Services
             {
                 _logger.LogError(ex, "Failed to get storage usage");
                 return 0;
+            }
+        }
+
+        public async Task<string> SaveImage(string fileName, byte[] imageData)
+        {
+            try
+            {
+                if (imageData == null || imageData.Length == 0)
+                {
+                    _logger.LogWarning("Empty image data provided");
+                    return string.Empty;
+                }
+
+                var folder = "vehicles";
+                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", folder);
+
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+
+                var filePath = Path.Combine(uploadsFolder, fileName);
+                await File.WriteAllBytesAsync(filePath, imageData);
+
+                return $"/uploads/{folder}/{fileName}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save image");
+                return string.Empty;
             }
         }
 

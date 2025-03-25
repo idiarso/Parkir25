@@ -41,17 +41,17 @@ namespace ParkIRC.Web.Controllers
                 var dailyRevenue = await _context.ParkingTransactions
                     .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date == today)
                     .Select(t => t.TotalAmount)
-                    .SumAsync(t => t);
+                    .SumAsync();
                     
                 var weeklyRevenue = await _context.ParkingTransactions
                     .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= weekStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
-                    .SumAsync(t => t);
+                    .SumAsync();
                     
                 var monthlyRevenue = await _context.ParkingTransactions
                     .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= monthStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
-                    .SumAsync(t => t);
+                    .SumAsync();
                 
                 // Get hourly occupancy data
                 var hourlyOccupancy = await GetHourlyOccupancyData();
@@ -64,45 +64,86 @@ namespace ParkIRC.Web.Controllers
 
                 var dashboardData = new DashboardViewModel
                 {
-                    TotalSpaces = totalSpaces,
-                    AvailableSpaces = availableSpaces,
+                    TotalParkingSpaces = totalSpaces,
+                    AvailableParkingSpaces = availableSpaces,
+                    OccupiedParkingSpaces = totalSpaces - availableSpaces,
+                    OccupancyRate = totalSpaces > 0 ? ((double)(totalSpaces - availableSpaces) / totalSpaces) * 100 : 0,
+                    TotalTransactionsToday = await _context.ParkingTransactions
+                        .CountAsync(t => t.EntryTime.Date == today),
                     DailyRevenue = dailyRevenue,
                     WeeklyRevenue = weeklyRevenue,
                     MonthlyRevenue = monthlyRevenue,
                     RecentActivity = recentActivity,
                     HourlyOccupancy = hourlyOccupancy,
-                    VehicleDistribution = vehicleDistribution
+                    VehicleDistribution = vehicleDistribution,
+                    ActiveTransactions = (await GetActiveTransactions()).Count
                 };
                 
                 return View(dashboardData);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading dashboard");
-                return View("Error", new ErrorViewModel 
-                { 
-                    Message = "Terjadi kesalahan saat memuat dashboard. Silakan coba lagi nanti.",
-                    RequestId = HttpContext.TraceIdentifier
-                });
+                _logger.LogError(ex, "Error loading dashboard data");
+                return View(new DashboardViewModel());
             }
         }
 
-        private async Task<List<ParkingActivity>> GetRecentActivity()
+        private async Task<List<DashboardParkingActivity>> GetRecentActivity()
         {
-            return await _context.ParkingTransactions
-                .Include(t => t.Vehicle)
-                .Include(t => t.ParkingSpace)
-                .Where(t => t.Vehicle != null)
+            var today = DateTime.Today;
+            var activities = await _context.ParkingTransactions
+                .Where(t => t.EntryTime.Date == today)
                 .OrderByDescending(t => t.EntryTime)
                 .Take(10)
-                .Select(t => new ParkingActivity
+                .Select(t => new DashboardParkingActivity
                 {
-                    VehicleType = t.Vehicle.VehicleType ?? "Unknown",
-                    LicensePlate = t.Vehicle.VehicleNumber ?? "Unknown",
+                    VehicleType = t.VehicleType,
+                    LicensePlate = t.LicensePlate,
                     Timestamp = t.EntryTime,
-                    ActionType = t.ExitTime != default(DateTime) ? "Exit" : "Entry",
+                    ActionType = "Entry",
+                    Fee = 0,
+                    ParkingType = t.ParkingType,
+                    VehicleNumber = t.VehicleNumber,
+                    LastActivity = t.EntryTime
+                })
+                .ToListAsync();
+
+            var exits = await _context.ParkingTransactions
+                .Where(t => t.ExitTime.HasValue && t.ExitTime.Value.Date == today)
+                .OrderByDescending(t => t.ExitTime)
+                .Take(10)
+                .Select(t => new DashboardParkingActivity
+                {
+                    VehicleType = t.VehicleType,
+                    LicensePlate = t.LicensePlate,
+                    Timestamp = t.ExitTime.Value,
+                    ActionType = "Exit",
                     Fee = t.TotalAmount,
-                    ParkingType = t.ParkingSpace != null ? t.ParkingSpace.SpaceType ?? "Unknown" : "Unknown"
+                    ParkingType = t.ParkingType,
+                    VehicleNumber = t.VehicleNumber,
+                    LastActivity = t.ExitTime
+                })
+                .ToListAsync();
+
+            activities.AddRange(exits);
+            return activities.OrderByDescending(a => a.Timestamp).Take(10).ToList();
+        }
+
+        private async Task<List<DashboardParkingActivity>> GetActiveTransactions()
+        {
+            return await _context.ParkingTransactions
+                .Where(t => t.ExitTime == null)
+                .OrderByDescending(t => t.EntryTime)
+                .Select(t => new DashboardParkingActivity
+                {
+                    VehicleType = t.VehicleType,
+                    LicensePlate = t.LicensePlate,
+                    Timestamp = t.EntryTime,
+                    ActionType = "Active",
+                    Fee = 0,
+                    ParkingType = t.ParkingType,
+                    VehicleNumber = t.VehicleNumber,
+                    LastActivity = t.EntryTime
                 })
                 .ToListAsync();
         }
@@ -122,8 +163,8 @@ namespace ParkIRC.Web.Controllers
             
             // Get actual data from database
             var dbHourlyData = await _context.ParkingTransactions
-                .Where(t => t.EntryTime.HasValue && t.EntryTime.Value.Date == today)
-                .GroupBy(t => t.EntryTime.Value.Hour)
+                .Where(t => t.EntryTime.Date == today)
+                .GroupBy(t => t.EntryTime.Hour)
                 .Select(g => new OccupancyData
                 {
                     Hour = $"{g.Key:D2}:00",

@@ -35,6 +35,16 @@ namespace ParkIRC.Models
             set { if (Vehicle != null) Vehicle.VehicleType = value; } 
         }
 
+        [NotMapped]
+        [Display(Name = "License Plate")]
+        public string LicensePlate {
+            get => Vehicle?.VehicleNumber ?? string.Empty;
+            set { if (Vehicle != null) Vehicle.VehicleNumber = value; }
+        }
+        
+        [Display(Name = "Parking Type")]
+        public string ParkingType { get; set; } = string.Empty;
+
         [Display(Name = "Parking Space ID")]
         public int? ParkingSpaceId { get; set; }
 
@@ -64,6 +74,9 @@ namespace ParkIRC.Models
         
         [Display(Name = "Operator ID")]
         public string OperatorId { get; set; } = string.Empty;
+        
+        [Display(Name = "Exit Operator ID")]
+        public string ExitOperatorId { get; set; } = string.Empty;
 
         [Display(Name = "Entry Time")]
         public DateTime EntryTime { get; set; }

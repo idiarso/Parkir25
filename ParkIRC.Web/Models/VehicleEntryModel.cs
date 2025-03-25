@@ -18,8 +18,7 @@ namespace ParkIRC.Models
 
         public string? PhoneNumber { get; set; }
 
-        [Required]
-        public DateTime EntryTime { get; set; } = DateTime.Now;
+        public DateTime? EntryTime { get; set; } = DateTime.Now;
 
         [Required]
         [Column(TypeName = "decimal(18,2)")]

@@ -20,6 +20,7 @@ using System.IO.Compression;
 using ParkIRC.Services;
 using iTextSharp.text;
 using iTextSharp.text.pdf;
+using ParkIRC.Web.Extensions;
 
 namespace ParkIRC.Controllers
 {
@@ -194,47 +195,42 @@ namespace ParkIRC.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Generate a random password for initial setup
-                var password = GenerateRandomPassword();
-                model.Operator.UserName = model.Operator.Email;
-                model.Operator.CreatedAt = DateTime.UtcNow;
-                
-                var result = await _userManager.CreateAsync(model.Operator, password);
-                
+                var @operator = new Operator
+                {
+                    UserName = model.Username,
+                    Email = model.Email,
+                    FullName = model.Name,
+                    Position = model.Position,
+                    GateId = model.GateId,
+                    Notes = model.Notes,
+                    IsActive = true,
+                    JoinDate = DateTime.UtcNow
+                };
+
+                var result = await _userManager.CreateAsync(@operator, model.Password);
+
                 if (result.Succeeded)
                 {
-                    // Add user to the selected role
-                    await _userManager.AddToRoleAsync(model.Operator, model.SelectedRole);
-                    
-                    // Create a log entry
-                    var journal = new Journal
-                    {
-                        Action = "CREATE_OPERATOR",
-                        Description = $"Operator {model.Operator.FullName} dibuat dengan role {model.SelectedRole}",
-                        OperatorId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system",
-                        Timestamp = DateTime.UtcNow
-                    };
-                    _context.Journals.Add(journal);
-                    await _context.SaveChangesAsync();
-                    
-                    TempData["SuccessMessage"] = $"Operator berhasil dibuat. Password sementara: {password}";
+                    await _userManager.AddToRoleAsync(@operator, model.Role);
+                    _logger.LogInformation("Created new operator account for {Username}", model.Username);
+                    TempData["SuccessMessage"] = "Operator created successfully.";
                     return RedirectToAction(nameof(Operators));
                 }
-                
+
                 foreach (var error in result.Errors)
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
             }
-            
-            // If there's an error, repopulate the roles
-            var roles = await _roleManager.Roles.ToListAsync();
-            model.AvailableRoles = roles.Select(r => new SelectListItem 
-            { 
-                Text = r.Name, 
-                Value = r.Name 
-            }).ToList();
-            
+
+            // If we got this far, something failed, redisplay form
+            model.AvailableRoles = new List<SelectListItem>
+            {
+                new SelectListItem { Value = "Operator", Text = "Operator" },
+                new SelectListItem { Value = "Supervisor", Text = "Supervisor" },
+                new SelectListItem { Value = "Admin", Text = "Administrator" }
+            };
+
             return View(model);
         }
 
@@ -459,7 +455,7 @@ namespace ParkIRC.Controllers
             // Then order by StartTime on the client side
             shifts = shifts
                 .OrderBy(s => s.Date)
-                .ThenBy(s => s.StartTime.TimeOfDay.TotalMinutes)
+                .ThenBy(s => s.StartTime.TotalMinutes)
                 .ToList();
                 
             return View(shifts);
@@ -1568,8 +1564,9 @@ namespace ParkIRC.Controllers
                     EntryTime = t.EntryTime.ToString("dd/MM/yyyy HH:mm:ss"),
                     ExitTime = t.ExitTime.HasValue ? 
                         t.ExitTime.Value.ToString("dd/MM/yyyy HH:mm:ss") : "-",
-                    Duration = t.ExitTime.HasValue ?
-                        $"{(t.ExitTime.Value - t.EntryTime).TotalHours:F1} jam" : "-",
+                    Duration = t.ExitTime.HasValue ? 
+                        $"{(decimal)(t.ExitTime.Value - t.EntryTime).TotalHours:F1} jam" : 
+                        "-",
                     Status = t.ExitTime.HasValue ? "Keluar" : "Masuk",
                     Amount = t.TotalAmount.ToString("C")
                 })

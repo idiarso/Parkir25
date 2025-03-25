@@ -186,11 +186,7 @@ namespace ParkIRC.Controllers.Api
                     return BadRequest(new { error = "Vehicle is already parked" });
                 }
 
-                DateTime entryTime = DateTime.Now;
-                if (model.EntryTime.HasValue)
-                {
-                    entryTime = model.EntryTime.Value;
-                }
+                DateTime entryTime = model.EntryTime.HasValue ? model.EntryTime.Value : DateTime.Now;
 
                 if (vehicle == null)
                 {
@@ -240,69 +236,75 @@ namespace ParkIRC.Controllers.Api
         [HttpPost("exit")]
         public async Task<ActionResult<ExitResponse>> RecordVehicleExit([FromBody] ExitModel model)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             try
             {
-                var vehicle = await _context.Vehicles
-                    .Include(v => v.ParkingSpace)
-                    .FirstOrDefaultAsync(v => v.VehicleNumber == model.VehicleNumber);
+                var transaction = await _context.ParkingTransactions
+                    .FirstOrDefaultAsync(t => t.VehicleNumber == model.VehicleNumber && t.ExitTime == default(DateTime));
 
-                if (vehicle == null || !vehicle.IsParked)
+                if (transaction == null)
                 {
-                    return NotFound(new { error = "Vehicle not found or not currently parked" });
+                    return NotFound(new { error = "Vehicle not found in active parking transactions" });
                 }
 
-                var exitTime = DateTime.Now;
-                TimeSpan parkingDuration = exitTime - vehicle.EntryTime;
-                decimal parkingFee = (decimal)Math.Ceiling(parkingDuration.TotalHours) * model.HourlyRate;
+                var exitTime = DateTime.UtcNow;
+                var duration = exitTime - transaction.EntryTime;
+                var hourlyRate = await GetHourlyRate(transaction.VehicleType);
+                var parkingFee = CalculateParkingFee(duration, hourlyRate);
 
-                // Create transaction record
-                var transaction = new ParkingTransaction
-                {
-                    VehicleId = vehicle.Id,
-                    EntryTime = vehicle.EntryTime,
-                    ExitTime = exitTime,
-                    Duration = parkingDuration,
-                    TotalAmount = parkingFee,
-                    PaymentMethod = model.PaymentMethod,
-                    PaymentTime = exitTime
-                };
-
-                _context.ParkingTransactions.Add(transaction);
-
-                // Update vehicle status
-                vehicle.IsParked = false;
-                if (vehicle.ParkingSpace != null)
-                {
-                    vehicle.ParkingSpace.IsOccupied = false;
-                    vehicle.ParkingSpaceId = null;
-                }
+                transaction.ExitTime = exitTime;
+                transaction.TotalAmount = parkingFee;
+                transaction.PaymentMethod = model.PaymentMethod;
+                transaction.PaymentTime = exitTime;
 
                 await _context.SaveChangesAsync();
 
-                // Create response
-                var response = new ExitResponse
+                // Update parking space status
+                var parkingSpace = await _context.ParkingSpaces.FindAsync(transaction.ParkingSpaceId);
+                if (parkingSpace != null)
+                {
+                    parkingSpace.IsOccupied = false;
+                    await _context.SaveChangesAsync();
+                }
+
+                // Notify clients through SignalR
+                await _hubContext.Clients.All.SendAsync("VehicleExited", new
+                {
+                    transaction.VehicleNumber,
+                    transaction.EntryTime,
+                    transaction.ExitTime,
+                    transaction.TotalAmount,
+                    transaction.PaymentMethod
+                });
+
+                return new ExitResponse
                 {
                     TransactionId = transaction.Id,
-                    VehicleNumber = vehicle.VehicleNumber,
-                    EntryTime = vehicle.EntryTime,
-                    ExitTime = exitTime,
-                    Duration = parkingDuration,
+                    VehicleNumber = transaction.VehicleNumber,
+                    EntryTime = transaction.EntryTime,
+                    ExitTime = transaction.ExitTime.HasValue ? transaction.ExitTime.Value : DateTime.UtcNow,
+                    Duration = (decimal)duration.TotalMinutes,
                     ParkingFee = parkingFee,
-                    PaymentMethod = model.PaymentMethod
+                    PaymentMethod = transaction.PaymentMethod
                 };
-
-                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error recording vehicle exit");
-                return StatusCode(500, new { error = "Error recording vehicle exit" });
+                _logger.LogError(ex, "Error processing vehicle exit");
+                return StatusCode(500, new { error = "Error processing vehicle exit" });
             }
+        }
+
+        private async Task<decimal> GetHourlyRate(string vehicleType)
+        {
+            var rate = await _context.ParkingRates
+                .FirstOrDefaultAsync(r => r.VehicleType == vehicleType);
+            return rate?.HourlyRate ?? 0;
+        }
+
+        private decimal CalculateParkingFee(TimeSpan duration, decimal hourlyRate)
+        {
+            var hours = Math.Ceiling(duration.TotalHours);
+            return hourlyRate * (decimal)hours;
         }
 
         // POST: api/v1/parking/gates/{gateId}/command
@@ -546,7 +548,7 @@ namespace ParkIRC.Controllers.Api
         public string VehicleNumber { get; set; }
         public DateTime EntryTime { get; set; }
         public DateTime ExitTime { get; set; }
-        public TimeSpan Duration { get; set; }
+        public decimal Duration { get; set; }
         public decimal ParkingFee { get; set; }
         public string PaymentMethod { get; set; }
     }

@@ -35,7 +35,7 @@
             <div class="card bg-info text-white">
                 <div class="card-body">
                     <h5 class="card-title">Occupancy Rate</h5>
-                    <h2 class="card-text">@Model.OccupancyRate.ToString("0.0")%</h2>
+                    <h2 class="card-text">@Model.OccupancyRate.ToString("F1")%</h2>
                 </div>
             </div>
         </div>
@@ -107,7 +107,7 @@
                                         <tr>
                                             <td>@exit.PlateNumber</td>
                                             <td>@exit.VehicleType</td>
-                                            <td>@exit.ExitTime.ToString("HH:mm:ss")</td>
+                                            <td>@exit.ExitTime?.ToString("HH:mm:ss")</td>
                                             <td>Rp @exit.Cost.ToString("N0")</td>
                                         </tr>
                                     }

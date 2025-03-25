@@ -21,6 +21,7 @@ using ParkIRC.Web.ViewModels;
 using iTextSharp.text;
 using iTextSharp.text.pdf;
 using OfficeOpenXml;
+using ParkIRC.Web.Extensions;
 
 namespace ParkIRC.Controllers
 {
@@ -85,9 +86,9 @@ namespace ParkIRC.Controllers
 
                 var dashboardData = new DashboardViewModel
                 {
-                    TotalSpaces = totalSpaces,
-                    AvailableSpaces = availableSpaces,
-                    OccupiedSpaces = totalSpaces - availableSpaces,
+                    TotalParkingSpaces = totalSpaces,
+                    AvailableParkingSpaces = availableSpaces,
+                    OccupiedParkingSpaces = totalSpaces - availableSpaces,
                     OccupancyRate = totalSpaces > 0 ? ((double)(totalSpaces - availableSpaces) / totalSpaces) * 100 : 0,
                     TotalTransactionsToday = await _context.ParkingTransactions
                         .CountAsync(t => t.EntryTime.Date == today),
@@ -97,20 +98,15 @@ namespace ParkIRC.Controllers
                     RecentActivity = recentActivity,
                     HourlyOccupancy = hourlyOccupancy,
                     VehicleDistribution = vehicleDistribution,
-                    ActiveTransactions = await GetActiveTransactions(),
-                    RecentEntries = await GetRecentEntries(),
-                    RecentExits = await GetRecentExits()
+                    ActiveTransactions = (await GetActiveTransactions()).Count
                 };
                 
                 return View(dashboardData);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading dashboard");
-                return View("Error", new ParkIRC.Models.ErrorViewModel 
-                { 
-                    Message = "Terjadi kesalahan saat memuat dashboard. Silakan coba lagi nanti.",
-                });
+                _logger.LogError(ex, "Error loading dashboard data");
+                return View(new DashboardViewModel());
             }
         }
 
@@ -133,63 +129,45 @@ namespace ParkIRC.Controllers
                 .ToListAsync();
         }
 
-        private async Task<List<DashboardParkingActivity>> GetRecentEntries()
+        private async Task<List<DashboardParkingActivity>> GetRecentActivity()
         {
-            return await _context.ParkingTransactions
-                .Include(t => t.Vehicle)
-                .Include(t => t.ParkingSpace)
+            var today = DateTime.Today;
+            var activities = await _context.ParkingTransactions
+                .Where(t => t.EntryTime.Date == today)
                 .OrderByDescending(t => t.EntryTime)
-                .Take(5)
+                .Take(10)
                 .Select(t => new DashboardParkingActivity
                 {
-                    VehicleType = t.Vehicle.VehicleType,
-                    LicensePlate = t.Vehicle.VehicleNumber,
+                    VehicleType = t.VehicleType,
+                    LicensePlate = t.LicensePlate,
                     Timestamp = t.EntryTime,
                     ActionType = "Entry",
                     Fee = 0,
-                    ParkingType = t.ParkingSpace.Type
+                    ParkingType = t.ParkingType,
+                    VehicleNumber = t.VehicleNumber,
+                    LastActivity = t.EntryTime
                 })
                 .ToListAsync();
-        }
 
-        private async Task<List<DashboardParkingActivity>> GetRecentExits()
-        {
-            return await _context.ParkingTransactions
-                .Include(t => t.Vehicle)
-                .Include(t => t.ParkingSpace)
-                .Where(t => t.ExitTime.HasValue)
+            var exits = await _context.ParkingTransactions
+                .Where(t => t.ExitTime.HasValue && t.ExitTime.Value.Date == today)
                 .OrderByDescending(t => t.ExitTime)
-                .Take(5)
+                .Take(10)
                 .Select(t => new DashboardParkingActivity
                 {
-                    VehicleType = t.Vehicle.VehicleType,
-                    LicensePlate = t.Vehicle.VehicleNumber,
+                    VehicleType = t.VehicleType,
+                    LicensePlate = t.LicensePlate,
                     Timestamp = t.ExitTime.Value,
                     ActionType = "Exit",
                     Fee = t.TotalAmount,
-                    ParkingType = t.ParkingSpace.Type
+                    ParkingType = t.ParkingType,
+                    VehicleNumber = t.VehicleNumber,
+                    LastActivity = t.ExitTime
                 })
                 .ToListAsync();
-        }
 
-        private async Task<List<ParkingActivity>> GetRecentActivity()
-        {
-            return await _context.ParkingTransactions
-                .Include(t => t.Vehicle)
-                .Include(t => t.ParkingSpace)
-                .Where(t => t.Vehicle != null)
-                    .OrderByDescending(t => t.EntryTime)
-                    .Take(10)
-                    .Select(t => new ParkingActivity
-                    {
-                    VehicleType = t.Vehicle.VehicleType ?? "Unknown",
-                    LicensePlate = t.Vehicle.VehicleNumber ?? "Unknown",
-                        Timestamp = t.EntryTime,
-                        ActionType = t.ExitTime != default(DateTime) ? "Exit" : "Entry",
-                        Fee = t.TotalAmount,
-                    ParkingType = t.ParkingSpace != null ? t.ParkingSpace.SpaceType ?? "Unknown" : "Unknown"
-                    })
-                    .ToListAsync();
+            activities.AddRange(exits);
+            return activities.OrderByDescending(a => a.Timestamp).Take(10).ToList();
         }
 
         private async Task<List<OccupancyData>> GetHourlyOccupancyData()
@@ -201,8 +179,8 @@ namespace ParkIRC.Controllers
             
             // Then get the hourly data with the total spaces value
             var hourlyData = await _context.ParkingTransactions
-                .Where(t => t.EntryTime.HasValue && t.EntryTime.Value.Date == today)
-                .GroupBy(t => t.EntryTime.Value.Hour)
+                .Where(t => t.EntryTime.Date == today)
+                .GroupBy(t => t.EntryTime.Hour)
                 .Select(g => new OccupancyData
                 {
                     Hour = $"{g.Key:D2}:00",
@@ -468,8 +446,8 @@ namespace ParkIRC.Controllers
         {
             var today = DateTime.Today;
             var hourlyData = await _context.ParkingTransactions
-                .Where(t => t.EntryTime.HasValue && t.EntryTime.Value.Date == today)
-                .GroupBy(t => t.EntryTime.Value.Hour)
+                .Where(t => t.EntryTime.Date == today)
+                .GroupBy(t => t.EntryTime.Hour)
                 .Select(g => new
                 {
                     Hour = g.Key,
@@ -506,9 +484,7 @@ namespace ParkIRC.Controllers
                     VehicleNumber = t.Vehicle != null ? t.Vehicle.VehicleNumber : "Unknown",
                     EntryTime = t.EntryTime,
                     ExitTime = t.ExitTime,
-                    Duration = t.ExitTime != default(DateTime) ? 
-                        (t.ExitTime - t.EntryTime).TotalHours.ToString("F1") + " hours" : 
-                        "In Progress",
+                    Duration = t.ExitTime.HasValue ? $"{(decimal)(t.ExitTime.Value - t.EntryTime).TotalHours:F1} jam" : "-",
                     Amount = t.TotalAmount,
                     Status = t.ExitTime != default(DateTime) ? "Completed" : "In Progress"
                 })
@@ -653,11 +629,11 @@ namespace ParkIRC.Controllers
 
         private decimal CalculateParkingFee(TimeSpan? duration, decimal hourlyRate)
         {
-            if (duration == null)
+            if (duration == null || !duration.HasValue)
                 return 0;
 
-            var totalHours = Math.Ceiling(duration.Value.TotalHours);
-            return totalHours * hourlyRate;
+            var totalHours = (decimal)Math.Ceiling(duration.Value.TotalHours);
+            return hourlyRate * totalHours;
         }
 
         private static string GenerateTransactionNumber()
@@ -699,6 +675,57 @@ namespace ParkIRC.Controllers
         public IActionResult Settings()
         {
             return View();
+        }
+
+        // Add missing GetDashboardData method
+        private async Task<DashboardData> GetDashboardData()
+        {
+            var today = DateTime.Today;
+            var weekStart = today.AddDays(-(int)today.DayOfWeek);
+            var monthStart = new DateTime(today.Year, today.Month, 1);
+
+            // Get data sequentially to avoid DbContext concurrency issues
+            var totalSpaces = await _context.ParkingSpaces.CountAsync();
+            var availableSpaces = await _context.ParkingSpaces.CountAsync(s => !s.IsOccupied);
+            
+            var dailyRevenue = await _context.ParkingTransactions
+                .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date == today)
+                .Select(t => t.TotalAmount)
+                .SumAsync();
+                
+            var weeklyRevenue = await _context.ParkingTransactions
+                .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= weekStart && t.PaymentTime.Value.Date <= today)
+                .Select(t => t.TotalAmount)
+                .SumAsync();
+                
+            var monthlyRevenue = await _context.ParkingTransactions
+                .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= monthStart && t.PaymentTime.Value.Date <= today)
+                .Select(t => t.TotalAmount)
+                .SumAsync();
+
+            return new DashboardData
+            {
+                TotalSpaces = totalSpaces,
+                AvailableSpaces = availableSpaces,
+                OccupiedSpaces = totalSpaces - availableSpaces,
+                DailyRevenue = dailyRevenue,
+                WeeklyRevenue = weeklyRevenue,
+                MonthlyRevenue = monthlyRevenue,
+                TodayTransactions = await _context.ParkingTransactions
+                    .CountAsync(t => t.EntryTime.Date == today)
+            };
+        }
+
+        // Define a strongly-typed class for dashboard data
+        public class DashboardData
+        {
+            public int TotalSpaces { get; set; }
+            public int AvailableSpaces { get; set; }
+            public int OccupiedSpaces { get; set; }
+            public decimal DailyRevenue { get; set; }
+            public decimal WeeklyRevenue { get; set; }
+            public decimal MonthlyRevenue { get; set; }
+            public int TodayTransactions { get; set; }
         }
 
         // New method for exporting dashboard data
@@ -757,7 +784,28 @@ namespace ParkIRC.Controllers
                 {
                     StartDate = startDate.Value,
                     EndDate = endDate.Value,
-                    Transactions = transactions,
+                    Transactions = transactions.Select(t => new TransactionHistoryItem
+                    {
+                        Id = t.Id.ToString(),
+                        TransactionNumber = t.TransactionNumber,
+                        TicketNumber = t.TicketNumber,
+                        VehicleNumber = t.Vehicle.VehicleNumber,
+                        VehicleType = t.Vehicle.VehicleType,
+                        PlateNumber = t.Vehicle.VehicleNumber,
+                        EntryTime = t.EntryTime,
+                        ExitTime = t.ExitTime,
+                        Duration = t.ExitTime.HasValue ? $"{(decimal)(t.ExitTime.Value - t.EntryTime).TotalHours:F1} jam" : "-",
+                        Amount = t.TotalAmount,
+                        PaymentStatus = t.PaymentStatus,
+                        PaymentMethod = t.PaymentMethod,
+                        PaymentTime = t.PaymentTime,
+                        EntryGate = t.EntryPoint,
+                        ExitGate = t.ExitPoint,
+                        EntryOperator = t.OperatorId,
+                        ExitOperator = t.ExitOperatorId,
+                        Status = t.Status,
+                        IsPaid = t.PaymentStatus == "Paid"
+                    }).ToList(),
                     TotalRevenue = transactions.Sum(t => t.TotalAmount),
                     TotalTransactions = transactions.Count
                 };
@@ -807,7 +855,7 @@ namespace ParkIRC.Controllers
                     vehicleNumber = transaction.Vehicle.VehicleNumber,
                     entryTime = transaction.EntryTime,
                     exitTime = transaction.ExitTime,
-                    duration = (transaction.ExitTime - transaction.EntryTime).TotalHours,
+                    duration = transaction.ExitTime.HasValue ? $"{(decimal)(transaction.ExitTime.Value - transaction.EntryTime).TotalHours:F1} jam" : "-",
                     amount = transaction.PaymentAmount,
                     paymentMethod = transaction.PaymentMethod
                 };
@@ -840,7 +888,7 @@ namespace ParkIRC.Controllers
                 
                 Waktu Masuk: {data.entryTime:dd/MM/yyyy HH:mm}
                 Waktu Keluar: {data.exitTime:dd/MM/yyyy HH:mm}
-                Durasi: {((TimeSpan)data.duration).TotalHours:F0} jam {((TimeSpan)data.duration).TotalMinutes % 60:F0} menit
+                Durasi: {Math.Floor(data.duration):F0} jam {Math.Floor((data.duration - Math.Floor(data.duration)) * 60):F0} menit
                 
                 Total Biaya: Rp {data.amount:N0}
                 Metode Bayar: {data.paymentMethod}
@@ -866,14 +914,14 @@ namespace ParkIRC.Controllers
                 {
                     Transactions = transactions.Select(t => new TransactionHistoryItem
                     {
-                        Id = t.Id,
+                        Id = t.Id.ToString(),
                         TransactionNumber = t.TransactionNumber,
                         TicketNumber = t.TicketNumber,
                         PlateNumber = t.Vehicle?.VehicleNumber ?? string.Empty,
                         VehicleType = t.Vehicle?.VehicleType ?? string.Empty,
                         EntryTime = t.EntryTime,
                         ExitTime = t.ExitTime,
-                        Duration = t.Duration,
+                        Duration = t.ExitTime.HasValue ? $"{(decimal)(t.ExitTime.Value - t.EntryTime).TotalHours:F1} jam" : "-",
                         Amount = t.TotalAmount,
                         PaymentStatus = t.PaymentStatus,
                         PaymentMethod = t.PaymentMethod,
@@ -932,20 +980,26 @@ namespace ParkIRC.Controllers
                 .Include(t => t.ParkingSpace)
                 .AsQueryable();
 
+            var date = filter.Date.HasValue ? filter.Date.Value : DateTime.Today;
+
             switch (filter.Type)
             {
                 case "Daily":
-                    query = query.Where(t => t.EntryTime.Date == filter.Date.Date);
+                    query = query.Where(t => t.EntryTime.Date == date.Date);
                     break;
                 case "Weekly":
-                    var weekStart = filter.Date.Date.AddDays(-(int)filter.Date.DayOfWeek);
-                    query = query.Where(t => t.EntryTime.Date >= weekStart && t.EntryTime.Date < weekStart.AddDays(7));
+                    var weekStart = date.Date.AddDays(-(int)date.DayOfWeek);
+                    var weekEnd = weekStart.AddDays(7);
+                    query = query.Where(t => t.EntryTime.Date >= weekStart && t.EntryTime.Date < weekEnd);
                     break;
                 case "Monthly":
-                    query = query.Where(t => t.EntryTime.Year == filter.Date.Year && t.EntryTime.Month == filter.Date.Month);
+                    query = query.Where(t => t.EntryTime.Year == date.Year && t.EntryTime.Month == date.Month);
                     break;
                 case "Custom":
-                    query = query.Where(t => t.EntryTime >= filter.StartDate && t.EntryTime <= filter.EndDate);
+                    if (filter.StartDate.HasValue && filter.EndDate.HasValue)
+                    {
+                        query = query.Where(t => t.EntryTime >= filter.StartDate.Value && t.EntryTime <= filter.EndDate.Value);
+                    }
                     break;
             }
 
@@ -975,18 +1029,20 @@ namespace ParkIRC.Controllers
 
         private string GetPeriodText(ReportFilter filter)
         {
+            var date = filter.Date.HasValue ? filter.Date.Value : DateTime.Today;
+
             switch (filter.Type)
             {
                 case "Daily":
-                    return filter.Date.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+                    return date.ToString("dd/MM/yyyy");
                 case "Weekly":
-                    var weekStart = filter.Date.Date.AddDays(-(int)filter.Date.DayOfWeek);
+                    var weekStart = date.Date.AddDays(-(int)date.DayOfWeek);
                     var weekEnd = weekStart.AddDays(6);
-                    return $"{weekStart:dd MMMM yyyy} - {weekEnd:dd MMMM yyyy}";
+                    return $"{weekStart:dd/MM/yyyy} - {weekEnd:dd/MM/yyyy}";
                 case "Monthly":
-                    return filter.Date.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+                    return date.ToString("MM/yyyy");
                 case "Custom":
-                    return $"{filter.StartDate:dd MMMM yyyy} - {filter.EndDate:dd MMMM yyyy}";
+                    return $"{filter.StartDate?.ToString("dd/MM/yyyy")} - {filter.EndDate?.ToString("dd/MM/yyyy")}";
                 default:
                     return "Periode Tidak Diketahui";
             }
@@ -1064,7 +1120,7 @@ namespace ParkIRC.Controllers
             try
             {
                 var recentExits = await _context.ParkingTransactions
-                    .Where(t => t.ExitTime.HasValue)
+                    .Where(t => t.ExitTime != default(DateTime))
                     .OrderByDescending(t => t.ExitTime)
                     .Take(5)
                     .Select(t => new
@@ -1093,9 +1149,9 @@ namespace ParkIRC.Controllers
 
             if (hours > 0)
             {
-                return $"{hours} jam {minutes} menit";
+                return $"{hours:0} jam {minutes:0} menit";
             }
-            return $"{minutes} menit";
+            return $"{minutes:0} menit";
         }
 
         [HttpGet]
@@ -1139,8 +1195,8 @@ namespace ParkIRC.Controllers
                         t.Id,
                         t.TransactionNumber,
                         VehicleNumber = t.Vehicle.VehicleNumber,
-                        t.EntryTime,
-                        t.ExitTime,
+                        EntryTime = t.EntryTime.ToString("dd/MM/yyyy HH:mm:ss"),
+                        ExitTime = t.ExitTime.HasValue ? t.ExitTime.Value.ToString("dd/MM/yyyy HH:mm:ss") : "-",
                         t.TotalAmount,
                         t.Status
                     })
@@ -1253,7 +1309,7 @@ namespace ParkIRC.Controllers
                                 Alignment = iTextSharp.text.Element.ALIGN_CENTER
                             };
                             doc.Add(title);
-                            doc.Add(new iTextSharp.text.Paragraph($"Periode: {filterStartDate.ToString("dd/MM/yyyy")} - {filterEndDate.ToString("dd/MM/yyyy")}"));
+                            doc.Add(new iTextSharp.text.Paragraph($"Periode: {filterStartDate:dd/MM/yyyy} - {filterEndDate:dd/MM/yyyy}"));
                             doc.Add(new iTextSharp.text.Paragraph("\n"));
 
                             // Add summary
@@ -1286,8 +1342,8 @@ namespace ParkIRC.Controllers
                                 table.AddCell(transaction.TransactionNumber);
                                 table.AddCell(transaction.VehicleNumber);
                                 table.AddCell(transaction.VehicleType);
-                                table.AddCell(transaction.EntryTime.ToString("dd/MM/yyyy HH:mm"));
-                                table.AddCell(transaction.ExitTime == default(DateTime) ? "-" : transaction.ExitTime.ToString("dd/MM/yyyy HH:mm"));
+                                table.AddCell(transaction.EntryTime.ToString("dd/MM/yyyy HH:mm:ss"));
+                                table.AddCell(transaction.ExitTime == default(DateTime) ? "-" : transaction.ExitTime.Value.ToString("dd/MM/yyyy HH:mm:ss"));
                                 table.AddCell($"Rp {transaction.TotalAmount:N0}");
                                 table.AddCell(transaction.Status);
                             }
@@ -1310,7 +1366,7 @@ namespace ParkIRC.Controllers
 
                         // Add title
                         worksheet.Cells[1, 1].Value = $"Laporan Parkir - {reportType.ToUpper()}";
-                        worksheet.Cells[2, 1].Value = $"Periode: {filterStartDate.ToString("dd/MM/yyyy")} - {filterEndDate.ToString("dd/MM/yyyy")}";
+                        worksheet.Cells[2, 1].Value = $"Periode: {filterStartDate:dd/MM/yyyy} - {filterEndDate:dd/MM/yyyy}";
 
                         // Add summary
                         worksheet.Cells[4, 1].Value = "Ringkasan:";
@@ -1339,8 +1395,8 @@ namespace ParkIRC.Controllers
                             worksheet.Cells[row, 1].Value = transaction.TransactionNumber;
                             worksheet.Cells[row, 2].Value = transaction.VehicleNumber;
                             worksheet.Cells[row, 3].Value = transaction.VehicleType;
-                            worksheet.Cells[row, 4].Value = transaction.EntryTime.ToString("dd/MM/yyyy HH:mm");
-                            worksheet.Cells[row, 5].Value = transaction.ExitTime == default(DateTime) ? "-" : transaction.ExitTime.ToString("dd/MM/yyyy HH:mm");
+                            worksheet.Cells[row, 4].Value = transaction.EntryTime.ToString("dd/MM/yyyy HH:mm:ss");
+                            worksheet.Cells[row, 5].Value = transaction.ExitTime == default(DateTime) ? "-" : transaction.ExitTime.Value.ToString("dd/MM/yyyy HH:mm:ss");
                             worksheet.Cells[row, 6].Value = $"Rp {transaction.TotalAmount:N0}";
                             worksheet.Cells[row, 7].Value = transaction.Status;
                             row++;
@@ -1416,7 +1472,7 @@ namespace ParkIRC.Controllers
                     vehicleNumber = parkingTransaction.Vehicle.VehicleNumber,
                     entryTime = parkingTransaction.EntryTime,
                     entryPhoto = parkingTransaction.Vehicle.EntryPhotoPath,
-                    duration = duration.TotalHours,
+                    duration = (decimal)duration.TotalHours,
                     amount = totalAmount
                 });
             }
@@ -1463,7 +1519,7 @@ namespace ParkIRC.Controllers
                     vehicleNumber = transaction.Vehicle.VehicleNumber,
                     entryTime = transaction.EntryTime,
                     exitTime = transaction.ExitTime,
-                    duration = (transaction.ExitTime - transaction.EntryTime).TotalHours,
+                    duration = transaction.ExitTime.HasValue ? $"{(decimal)(transaction.ExitTime.Value - transaction.EntryTime).TotalHours:F1} jam" : "-",
                     amount = transaction.PaymentAmount,
                     paymentMethod = transaction.PaymentMethod
                 };

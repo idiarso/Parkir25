@@ -1,6 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using System.Reflection;
+using System;
+using System.Linq;
+using ParkIRC.Web.Models;
 
 namespace ParkIRC.Extensions
 {
@@ -143,8 +146,17 @@ namespace ParkIRC.Extensions
             foreach (var optionType in optionTypes)
             {
                 var sectionName = optionType.Name.Replace("Options", "");
-                services.Configure(optionType, configuration.GetSection(sectionName));
+                var method = typeof(OptionsConfigurationServiceCollectionExtensions)
+                    .GetMethod("Configure", new[] { typeof(IServiceCollection), typeof(IConfiguration) });
+
+                if (method != null)
+                {
+                    var genericMethod = method.MakeGenericMethod(optionType);
+                    genericMethod.Invoke(null, new object[] { services, configuration.GetSection(sectionName) });
+                }
             }
+
+            services.Configure<ParkIRC.Web.Models.SiteSettings>(configuration.GetSection("SiteSettings"));
 
             return services;
         }
