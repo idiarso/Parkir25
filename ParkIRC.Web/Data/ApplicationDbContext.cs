@@ -214,25 +214,43 @@ namespace ParkIRC.Data
             builder.Entity<Operator>()
                 .HasMany(o => o.Transactions)
                 .WithOne(t => t.Operator)
-                .HasForeignKey(t => t.OperatorId);
+                .HasForeignKey(t => t.OperatorId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // Seed operators from users - converted to use separate seeding instead of implicit conversion
-            builder.Entity<ApplicationUser>()
-                .HasData(new ApplicationUser
-                {
-                    Id = "1",
-                    UserName = "admin",
-                    NormalizedUserName = "ADMIN",
-                    Email = "admin@example.com",
-                    NormalizedEmail = "ADMIN@EXAMPLE.COM",
-                    EmailConfirmed = true,
-                    SecurityStamp = Guid.NewGuid().ToString(),
-                    FirstName = "Admin",
-                    LastName = "User",
-                    IsOperator = true
-                });
+            // Seed initial data
+            var adminUser = new ApplicationUser
+            {
+                Id = "1",
+                UserName = "admin",
+                NormalizedUserName = "ADMIN",
+                Email = "admin@example.com",
+                NormalizedEmail = "ADMIN@EXAMPLE.COM",
+                EmailConfirmed = true,
+                SecurityStamp = Guid.NewGuid().ToString(),
+                FirstName = "Admin",
+                LastName = "User",
+                IsOperator = true
+            };
 
-            // Seed administrators separately
+            var adminOperator = new Operator
+            {
+                Id = adminUser.Id,
+                UserName = adminUser.UserName,
+                NormalizedUserName = adminUser.NormalizedUserName,
+                Name = $"{adminUser.FirstName} {adminUser.LastName}",
+                FullName = $"{adminUser.FirstName} {adminUser.LastName}",
+                Email = adminUser.Email,
+                NormalizedEmail = adminUser.NormalizedEmail,
+                IsActive = true,
+                JoinDate = DateTime.UtcNow,
+                SecurityStamp = adminUser.SecurityStamp,
+                EmailConfirmed = true
+            };
+
+            builder.Entity<ApplicationUser>().HasData(adminUser);
+            builder.Entity<Operator>().HasData(adminOperator);
+
+            // Seed system admin
             builder.Entity<Operator>()
                 .HasData(new Operator
                 {

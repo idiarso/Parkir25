@@ -43,7 +43,7 @@ namespace ParkIRC.Models
         }
         
         [Display(Name = "Entry Time")]
-        public DateTime EntryTime { get; set; }
+        public DateTime? EntryTime { get; set; }
         
         [Display(Name = "Exit Time")]
         public DateTime? ExitTime { get; set; }

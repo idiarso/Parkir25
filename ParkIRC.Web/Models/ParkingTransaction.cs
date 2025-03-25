@@ -75,6 +75,9 @@ namespace ParkIRC.Models
         [Display(Name = "Operator ID")]
         public string OperatorId { get; set; } = string.Empty;
         
+        [ForeignKey("OperatorId")]
+        public virtual Operator? Operator { get; set; }
+        
         [Display(Name = "Exit Operator ID")]
         public string ExitOperatorId { get; set; } = string.Empty;
 

@@ -86,7 +86,8 @@ namespace ParkIRC.Services
             }
 
             var exitTime = DateTime.UtcNow;
-            var duration = exitTime - vehicle.EntryTime;
+            var entryTime = vehicle.EntryTime ?? exitTime;
+            var duration = exitTime - entryTime;
             var hours = Math.Ceiling(duration.TotalHours);
             var hourlyRate = vehicle.ParkingSpace?.HourlyRate ?? 0m;
             decimal totalAmount = (decimal)hours * hourlyRate;
@@ -96,7 +97,7 @@ namespace ParkIRC.Services
                 VehicleId = vehicle.Id,
                 ParkingSpaceId = vehicle.ParkingSpaceId ?? 0,
                 TransactionNumber = GenerateTransactionNumber(),
-                EntryTime = vehicle.EntryTime,
+                EntryTime = vehicle.EntryTime ?? exitTime,
                 ExitTime = exitTime,
                 Duration = (decimal)duration.TotalHours,
                 TotalAmount = totalAmount,
@@ -149,7 +150,8 @@ namespace ParkIRC.Services
             }
 
             var exitTime = DateTime.UtcNow;
-            var duration = exitTime - vehicle.EntryTime;
+            var entryTime = vehicle.EntryTime ?? exitTime;
+            var duration = exitTime - entryTime;
             var hours = Math.Ceiling(duration.TotalHours);
             var hourlyRate = vehicle.ParkingSpace?.HourlyRate ?? 0m;
             return (decimal)hours * hourlyRate;

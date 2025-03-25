@@ -1099,7 +1099,7 @@ namespace ParkIRC.Controllers
                     .Take(5)
                     .Select(v => new
                     {
-                        timestamp = v.EntryTime.ToString("dd/MM/yyyy HH:mm:ss"),
+                        timestamp = v.EntryTime.HasValue ? v.EntryTime.Value.ToString("dd/MM/yyyy HH:mm:ss") : "-",
                         vehicleNumber = v.VehicleNumber,
                         vehicleType = v.VehicleType
                     })

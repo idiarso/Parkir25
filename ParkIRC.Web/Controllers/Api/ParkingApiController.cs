@@ -186,15 +186,13 @@ namespace ParkIRC.Controllers.Api
                     return BadRequest(new { error = "Vehicle is already parked" });
                 }
 
-                DateTime entryTime = model.EntryTime.HasValue ? model.EntryTime.Value : DateTime.Now;
-
                 if (vehicle == null)
                 {
                     vehicle = new Vehicle
                     {
                         VehicleNumber = model.VehicleNumber,
                         VehicleType = model.VehicleType,
-                        EntryTime = entryTime,
+                        EntryTime = model.EntryTime ?? DateTime.Now,
                         IsParked = true
                     };
                     
@@ -202,7 +200,7 @@ namespace ParkIRC.Controllers.Api
                 }
                 else 
                 {
-                    vehicle.EntryTime = entryTime;
+                    vehicle.EntryTime = model.EntryTime ?? DateTime.Now;
                     vehicle.IsParked = true;
                     vehicle.VehicleType = model.VehicleType;
                 }
@@ -210,7 +208,9 @@ namespace ParkIRC.Controllers.Api
                 await _context.SaveChangesAsync();
 
                 // Calculate parking duration and fee
-                TimeSpan parkingDuration = DateTime.Now - vehicle.EntryTime;
+                var currentTime = DateTime.Now;
+                var entryDateTime = vehicle.EntryTime ?? currentTime;
+                TimeSpan parkingDuration = currentTime - entryDateTime;
                 decimal parkingFee = (decimal)Math.Ceiling(parkingDuration.TotalHours) * model.HourlyRate;
 
                 // Create response
@@ -219,7 +219,7 @@ namespace ParkIRC.Controllers.Api
                     TicketId = vehicle.Id,
                     TicketNumber = vehicle.VehicleNumber,
                     VehicleNumber = vehicle.VehicleNumber,
-                    EntryTime = vehicle.EntryTime,
+                    EntryTime = vehicle.EntryTime ?? DateTime.Now,
                     ParkingSpace = vehicle.ParkingSpace?.Name ?? "Not Assigned"
                 };
 
@@ -247,7 +247,8 @@ namespace ParkIRC.Controllers.Api
                 }
 
                 var exitTime = DateTime.UtcNow;
-                var duration = exitTime - transaction.EntryTime;
+                var entryTime = transaction.EntryTime;
+                var duration = exitTime - entryTime;
                 var hourlyRate = await GetHourlyRate(transaction.VehicleType);
                 var parkingFee = CalculateParkingFee(duration, hourlyRate);
 
@@ -281,7 +282,7 @@ namespace ParkIRC.Controllers.Api
                     TransactionId = transaction.Id,
                     VehicleNumber = transaction.VehicleNumber,
                     EntryTime = transaction.EntryTime,
-                    ExitTime = transaction.ExitTime.HasValue ? transaction.ExitTime.Value : DateTime.UtcNow,
+                    ExitTime = transaction.ExitTime ?? DateTime.UtcNow,
                     Duration = (decimal)duration.TotalMinutes,
                     ParkingFee = parkingFee,
                     PaymentMethod = transaction.PaymentMethod

@@ -47,7 +47,7 @@ namespace ParkIRC.Models
         public DateTime? UpdatedAt { get; set; }
         
         [Display(Name = "Operators")]
-        public ICollection<ApplicationUser> Operators { get; set; } = new List<ApplicationUser>();
+        public ICollection<Operator> Operators { get; set; } = new List<Operator>();
         
         public Shift()
         {
