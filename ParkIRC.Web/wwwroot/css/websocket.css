@@ -1,0 +1,112 @@
+.connection-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 8px;
+    color: white;
+}
+
+.connection-status.connected {
+    background-color: #4caf50;
+}
+
+.connection-status.disconnected {
+    background-color: #ff9800;
+}
+
+.connection-status.error,
+.connection-status.failed {
+    background-color: #f44336;
+}
+
+.connection-status::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background-color: currentColor;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.websocket-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    margin: 8px 0;
+}
+
+.websocket-controls button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    background-color: #2196f3;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.websocket-controls button:hover {
+    background-color: #1976d2;
+}
+
+.websocket-controls button:disabled {
+    background-color: #bdbdbd;
+    cursor: not-allowed;
+}
+
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 4px;
+    background-color: #333;
+    color: white;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+}
+
+.notification.success {
+    background-color: #4caf50;
+}
+
+.notification.warning {
+    background-color: #ff9800;
+}
+
+.notification.error {
+    background-color: #f44336;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+} 

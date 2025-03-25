@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gate Control System - Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+            flex: 1;
+            min-width: 300px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 5px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.red {
+            background-color: #f44336;
+        }
+        button.red:hover {
+            background-color: #d32f2f;
+        }
+        button.blue {
+            background-color: #2196F3;
+        }
+        button.blue:hover {
+            background-color: #0b7dda;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 10px;
+            overflow: auto;
+            max-height: 300px;
+        }
+        .status {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #ccc;
+        }
+        .connected {
+            background-color: #4CAF50;
+        }
+        select, input {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>ParkIRC Gate Control System - Test Page</h1>
+    
+    <div class="container">
+        <div class="card">
+            <h2>SignalR Connection</h2>
+            <div class="status">
+                <div id="connection-indicator" class="indicator"></div>
+                <span id="connection-status">Disconnected</span>
+            </div>
+            <button id="connect-btn">Connect to SignalR</button>
+            <button id="disconnect-btn" disabled>Disconnect</button>
+        </div>
+        
+        <div class="card">
+            <h2>Entry Gate Control</h2>
+            <button id="entry-open-btn" class="blue">Open Entry Gate</button>
+            <button id="entry-close-btn" class="red">Close Entry Gate</button>
+            <button id="entry-status-btn">Get Entry Gate Status</button>
+            <div>
+                <h3>Status:</h3>
+                <pre id="entry-status">No data</pre>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Exit Gate Control</h2>
+            <button id="exit-open-btn" class="blue">Open Exit Gate</button>
+            <button id="exit-close-btn" class="red">Close Exit Gate</button>
+            <button id="exit-status-btn">Get Exit Gate Status</button>
+            <div>
+                <h3>Status:</h3>
+                <pre id="exit-status">No data</pre>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Print Ticket/Receipt</h2>
+            <div>
+                <select id="gate-select">
+                    <option value="entry">Entry Gate</option>
+                    <option value="exit">Exit Gate</option>
+                </select>
+                <select id="print-type">
+                    <option value="TICKET">Ticket</option>
+                    <option value="RECEIPT">Receipt</option>
+                </select>
+            </div>
+            <div>
+                <input type="text" id="ticket-id" placeholder="Ticket ID" value="T12345">
+                <input type="text" id="license-plate" placeholder="License Plate" value="ABC123">
+            </div>
+            <div>
+                <input type="number" id="amount-paid" placeholder="Amount Paid" value="15000">
+                <input type="text" id="duration" placeholder="Duration" value="1h 30m">
+            </div>
+            <button id="print-btn">Print</button>
+        </div>
+        
+        <div class="card">
+            <h2>Camera Capture</h2>
+            <div>
+                <select id="camera-gate-select">
+                    <option value="entry">Entry Gate</option>
+                    <option value="exit">Exit Gate</option>
+                </select>
+                <select id="camera-reason">
+                    <option value="ENTRY">Entry</option>
+                    <option value="EXIT">Exit</option>
+                    <option value="MANUAL">Manual</option>
+                </select>
+            </div>
+            <button id="capture-btn">Trigger Camera</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Event Log</h2>
+            <button id="clear-log-btn">Clear Log</button>
+            <pre id="event-log">Waiting for events...</pre>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script>
+        // API Endpoint Base URL - change this to match your server
+        const API_BASE = '/api/v1/parking';
+        
+        // SignalR Connection
+        let connection;
+        let isConnected = false;
+        
+        // DOM Elements
+        const connectionIndicator = document.getElementById('connection-indicator');
+        const connectionStatus = document.getElementById('connection-status');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const eventLog = document.getElementById('event-log');
+        const entryStatus = document.getElementById('entry-status');
+        const exitStatus = document.getElementById('exit-status');
+        
+        // Connect to SignalR Hub
+        connectBtn.addEventListener('click', async () => {
+            try {
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl('/gatehub')
+                    .withAutomaticReconnect()
+                    .build();
+                
+                // Set up event handlers
+                setupSignalREventHandlers();
+                
+                // Start connection
+                await connection.start();
+                isConnected = true;
+                
+                // Update UI
+                connectionIndicator.classList.add('connected');
+                connectionStatus.textContent = 'Connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                
+                logEvent('SignalR connected successfully');
+            } catch (err) {
+                logEvent(`Connection error: ${err}`);
+                console.error(err);
+            }
+        });
+        
+        // Disconnect from SignalR Hub
+        disconnectBtn.addEventListener('click', async () => {
+            if (connection) {
+                try {
+                    await connection.stop();
+                    isConnected = false;
+                    
+                    // Update UI
+                    connectionIndicator.classList.remove('connected');
+                    connectionStatus.textContent = 'Disconnected';
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    
+                    logEvent('SignalR disconnected');
+                } catch (err) {
+                    logEvent(`Disconnection error: ${err}`);
+                    console.error(err);
+                }
+            }
+        });
+        
+        // Setup SignalR Event Handlers
+        function setupSignalREventHandlers() {
+            // Listen for gate events
+            connection.on('ReceiveGateEvent', (event) => {
+                logEvent(`Gate Event: ${event.eventType} from ${event.gateId} gate`);
+                console.log('Gate event:', event);
+            });
+            
+            // Listen for gate status updates
+            connection.on('GateStatusUpdated', (data) => {
+                logEvent(`Gate Status Updated: ${data.gateId} - Gate: ${data.status.gate}, Sensor: ${data.status.sensor}`);
+                
+                // Update status display
+                if (data.gateId === 'entry') {
+                    entryStatus.textContent = JSON.stringify(data, null, 2);
+                } else if (data.gateId === 'exit') {
+                    exitStatus.textContent = JSON.stringify(data, null, 2);
+                }
+            });
+            
+            // Listen for command results
+            connection.on('CommandResult', (result) => {
+                logEvent(`Command Result: ${result.command} to ${result.gateId} gate - ${result.success ? 'Success' : 'Failed'}`);
+            });
+            
+            // Listen for other events
+            connection.on('CameraCaptureTriggered', (data) => {
+                logEvent(`Camera Capture: ${data.gateId} gate - ${data.success ? 'Success' : 'Failed'}`);
+            });
+            
+            connection.on('PrintJobSent', (data) => {
+                logEvent(`Print Job: ${data.printType} at ${data.gateId} gate - ${data.success ? 'Success' : 'Failed'}`);
+            });
+            
+            // Connection status events
+            connection.onreconnecting((error) => {
+                connectionStatus.textContent = 'Reconnecting...';
+                connectionIndicator.classList.remove('connected');
+                logEvent(`SignalR reconnecting: ${error ? error.message : 'Unknown error'}`);
+            });
+            
+            connection.onreconnected((connectionId) => {
+                connectionStatus.textContent = 'Connected';
+                connectionIndicator.classList.add('connected');
+                logEvent(`SignalR reconnected with ID: ${connectionId}`);
+            });
+            
+            connection.onclose((error) => {
+                connectionStatus.textContent = 'Disconnected';
+                connectionIndicator.classList.remove('connected');
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                isConnected = false;
+                logEvent(`SignalR connection closed: ${error ? error.message : 'No error'}`);
+            });
+        }
+        
+        // Gate Control Buttons
+        document.getElementById('entry-open-btn').addEventListener('click', () => {
+            sendGateCommand('entry', 'OPEN_GATE');
+        });
+        
+        document.getElementById('entry-close-btn').addEventListener('click', () => {
+            sendGateCommand('entry', 'CLOSE_GATE');
+        });
+        
+        document.getElementById('exit-open-btn').addEventListener('click', () => {
+            sendGateCommand('exit', 'OPEN_GATE');
+        });
+        
+        document.getElementById('exit-close-btn').addEventListener('click', () => {
+            sendGateCommand('exit', 'CLOSE_GATE');
+        });
+        
+        // Status Buttons
+        document.getElementById('entry-status-btn').addEventListener('click', () => {
+            getGateStatus('entry');
+        });
+        
+        document.getElementById('exit-status-btn').addEventListener('click', () => {
+            getGateStatus('exit');
+        });
+        
+        // Print Button
+        document.getElementById('print-btn').addEventListener('click', () => {
+            const gateId = document.getElementById('gate-select').value;
+            const printType = document.getElementById('print-type').value;
+            const ticketId = document.getElementById('ticket-id').value;
+            const licensePlate = document.getElementById('license-plate').value;
+            const amountPaid = document.getElementById('amount-paid').value;
+            const duration = document.getElementById('duration').value;
+            
+            sendPrintRequest(gateId, printType, ticketId, licensePlate, amountPaid, duration);
+        });
+        
+        // Camera Button
+        document.getElementById('capture-btn').addEventListener('click', () => {
+            const gateId = document.getElementById('camera-gate-select').value;
+            const reason = document.getElementById('camera-reason').value;
+            
+            triggerCamera(gateId, reason);
+        });
+        
+        // Clear Log Button
+        document.getElementById('clear-log-btn').addEventListener('click', () => {
+            eventLog.textContent = 'Log cleared';
+        });
+        
+        // Helper Functions
+        async function sendGateCommand(gateId, command) {
+            try {
+                const response = await fetch(`${API_BASE}/gates/${gateId}/command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        command: command,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                const data = await response.json();
+                logEvent(`Sent command ${command} to ${gateId} gate. Result: ${data.success ? 'Success' : 'Failed'}`);
+                console.log('Command response:', data);
+            } catch (err) {
+                logEvent(`Error sending command: ${err}`);
+                console.error(err);
+            }
+        }
+        
+        async function getGateStatus(gateId) {
+            try {
+                const response = await fetch(`${API_BASE}/gates/${gateId}/status`);
+                const data = await response.json();
+                
+                // Update status display
+                if (gateId === 'entry') {
+                    entryStatus.textContent = JSON.stringify(data, null, 2);
+                } else if (gateId === 'exit') {
+                    exitStatus.textContent = JSON.stringify(data, null, 2);
+                }
+                
+                logEvent(`Got ${gateId} gate status - Gate: ${data.status.gate}, Sensor: ${data.status.sensor}`);
+            } catch (err) {
+                logEvent(`Error getting status: ${err}`);
+                console.error(err);
+            }
+        }
+        
+        async function sendPrintRequest(gateId, printType, ticketId, licensePlate, amountPaid, duration) {
+            try {
+                const printData = {
+                    type: printType,
+                    data: {
+                        id: ticketId,
+                        timestamp: new Date().toISOString(),
+                        licensePlate: licensePlate,
+                        operator: 'TESTOP'
+                    }
+                };
+                
+                if (printType === 'RECEIPT') {
+                    printData.data.amountPaid = parseFloat(amountPaid);
+                    printData.data.duration = duration;
+                }
+                
+                const response = await fetch(`${API_BASE}/gates/${gateId}/print`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(printData)
+                });
+                
+                const data = await response.json();
+                logEvent(`Sent print request (${printType}) to ${gateId} gate. Result: ${data.success ? 'Success' : 'Failed'}`);
+            } catch (err) {
+                logEvent(`Error sending print request: ${err}`);
+                console.error(err);
+            }
+        }
+        
+        async function triggerCamera(gateId, reason) {
+            try {
+                const response = await fetch(`${API_BASE}/gates/${gateId}/camera/capture`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reason: reason,
+                        metadata: {
+                            ticketId: document.getElementById('ticket-id').value,
+                            licensePlate: document.getElementById('license-plate').value
+                        },
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                const data = await response.json();
+                logEvent(`Triggered camera at ${gateId} gate (${reason}). Result: ${data.success ? 'Success' : 'Failed'}`);
+            } catch (err) {
+                logEvent(`Error triggering camera: ${err}`);
+                console.error(err);
+            }
+        }
+        
+        function logEvent(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            eventLog.textContent = `[${timestamp}] ${message}\n${eventLog.textContent}`;
+        }
+    </script>
+</body>
+</html> 
