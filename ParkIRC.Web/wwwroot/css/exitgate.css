@@ -1,0 +1,206 @@
+/* Exit Gate Styling */
+.exit-gate-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Gate Header */
+.gate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #343a40;
+    color: white;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.gate-title h2 {
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+.operator-name {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.gate-status {
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+}
+
+.status-ready {
+    background-color: #28a745;
+}
+
+.status-error {
+    background-color: #dc3545;
+}
+
+.status-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+/* Device Status */
+.device-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: #fff;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-right: 1rem;
+    border-right: 1px solid #e9ecef;
+}
+
+.status-item:last-child {
+    border-right: none;
+}
+
+.status-label {
+    font-weight: bold;
+}
+
+.status-indicator {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+}
+
+.status-indicator.active {
+    background-color: #28a745;
+    color: white;
+}
+
+.status-indicator.inactive {
+    background-color: #dc3545;
+    color: white;
+}
+
+.status-indicator.warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+/* Gate Content Layout */
+.gate-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Camera Section */
+.camera-section {
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.camera-preview {
+    width: 100%;
+    height: 300px;
+    background-color: #343a40;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#camera-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: white;
+}
+
+#camera-placeholder i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+#camera-stream, #camera-canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Vehicle Exit Form */
+.vehicle-exit {
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.vehicle-exit h3 {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.vehicle-detail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+/* Recent Exits */
+.recent-exits {
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.recent-exits h3 {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .gate-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .device-status {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .status-item {
+        padding: 0.5rem 0;
+        border-right: none;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .status-item:last-child {
+        border-bottom: none;
+    }
+} 

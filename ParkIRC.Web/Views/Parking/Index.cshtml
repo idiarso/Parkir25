@@ -1,0 +1,405 @@
+@{
+    ViewData["Title"] = "Manajemen Parkir";
+}
+
+<div class="parking-dashboard">
+    <div class="dashboard-header">
+        <h1>Dashboard Parkir</h1>
+        <div class="connection-status-container">
+            Status: <span id="connection-status" class="disconnected">Terputus</span>
+        </div>
+    </div>
+
+    <div class="dashboard-content">
+        <!-- Panel Kiri - Entri Kendaraan -->
+        <div class="dashboard-panel">
+            <div class="panel-header">
+                <h2>Kendaraan Masuk</h2>
+            </div>
+            <div class="panel-body">
+                <form id="vehicle-entry-form" class="parking-form">
+                    <div class="form-group">
+                        <label for="plate-number">Nomor Plat</label>
+                        <input type="text" id="plate-number" name="plateNumber" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vehicle-type">Jenis Kendaraan</label>
+                        <select id="vehicle-type" name="vehicleType" class="form-control" required>
+                            <option value="Mobil">Mobil</option>
+                            <option value="Motor">Motor</option>
+                            <option value="Truk">Truk</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="entry-photo">Foto Kendaraan</label>
+                        <input type="file" id="entry-photo" name="entryPhoto" class="form-control-file" accept="image/*" capture="camera">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-block">Masuk Parkir</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Panel Tengah - Status Parkir -->
+        <div class="dashboard-panel">
+            <div class="panel-header">
+                <h2>Status Parkir</h2>
+            </div>
+            <div class="panel-body">
+                <div class="parking-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Space</span>
+                        <span class="stat-value" id="total-spaces">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Tersedia</span>
+                        <span class="stat-value" id="available-spaces">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Terisi</span>
+                        <span class="stat-value" id="occupied-spaces">0</span>
+                    </div>
+                </div>
+
+                <div class="parking-layout">
+                    <h3>Layout Parkir</h3>
+                    <div id="parking-spaces-container" class="parking-spaces-grid">
+                        <!-- Spaces will be loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Kanan - Kendaraan Keluar -->
+        <div class="dashboard-panel">
+            <div class="panel-header">
+                <h2>Kendaraan Keluar</h2>
+            </div>
+            <div class="panel-body">
+                <form id="vehicle-exit-form" class="parking-form">
+                    <div class="form-group">
+                        <label for="transaction-id">ID Transaksi</label>
+                        <div class="input-group">
+                            <input type="text" id="transaction-id" name="transactionId" class="form-control" required>
+                            <div class="input-group-append">
+                                <button type="button" id="scan-qr" class="btn btn-outline-secondary">Scan QR</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="exit-fee">Biaya Parkir</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">Rp</span>
+                            </div>
+                            <input type="number" id="exit-fee" name="fee" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input type="checkbox" id="is-paid" name="isPaid" class="form-check-input">
+                            <label for="is-paid" class="form-check-label">Sudah Dibayar</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="exit-photo">Foto Kendaraan Keluar</label>
+                        <input type="file" id="exit-photo" name="exitPhoto" class="form-control-file" accept="image/*" capture="camera">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-danger btn-block">Keluar Parkir</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaksi Terbaru -->
+    <div class="recent-transactions">
+        <h3>Transaksi Terbaru</h3>
+        <div id="transactions-list" class="transactions-container">
+            <!-- Transaksi akan dimuat secara dinamis -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detail Transaksi -->
+<div class="modal fade" id="transaction-detail-modal" tabindex="-1" role="dialog" aria-labelledby="transactionDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transactionDetailModalLabel">Detail Transaksi</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="transaction-details" class="transaction-details-container">
+                    <div class="detail-row">
+                        <div class="detail-label">Nomor Plat:</div>
+                        <div id="vehicle-plate" class="detail-value"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Waktu Masuk:</div>
+                        <div id="entry-time" class="detail-value"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Waktu Keluar:</div>
+                        <div id="exit-time" class="detail-value"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Biaya:</div>
+                        <div id="parking-fee" class="detail-value"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Status Pembayaran:</div>
+                        <div id="payment-status" class="detail-value"></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Gambar Masuk:</div>
+                        <div class="detail-value">
+                            <img id="entry-image" class="detail-image" src="" alt="Foto masuk tidak tersedia">
+                        </div>
+                    </div>
+                    <div class="detail-row" id="exit-image-container">
+                        <div class="detail-label">Gambar Keluar:</div>
+                        <div class="detail-value">
+                            <img id="exit-image" class="detail-image" src="" alt="Foto keluar tidak tersedia">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                <button type="button" id="print-receipt" class="btn btn-primary">Cetak Tanda Terima</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/parking.css" />
+}
+
+@section Scripts {
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script src="~/js/parking.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Inisialisasi data parkir spaces
+            $.get('/api/ParkingSpace/GetAll', function(data) {
+                renderParkingSpaces(data);
+                updateParkingStats(data);
+            });
+            
+            // Inisialisasi data transaksi terbaru
+            $.get('/api/ParkingTransaction/GetRecent', function(data) {
+                renderRecentTransactions(data);
+            });
+            
+            // Event handler untuk form kendaraan masuk
+            $('#vehicle-entry-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const plateNumber = $('#plate-number').val();
+                const vehicleType = $('#vehicle-type').val();
+                const entryPhoto = $('#entry-photo')[0].files[0];
+                
+                if (entryPhoto) {
+                    uploadImage(entryPhoto, function(photoPath) {
+                        submitVehicleEntry(plateNumber, vehicleType, photoPath);
+                    });
+                } else {
+                    submitVehicleEntry(plateNumber, vehicleType, null);
+                }
+            });
+            
+            // Event handler untuk form kendaraan keluar
+            $('#vehicle-exit-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const transactionId = $('#transaction-id').val();
+                const fee = parseFloat($('#exit-fee').val());
+                const isPaid = $('#is-paid').prop('checked');
+                const exitPhoto = $('#exit-photo')[0].files[0];
+                
+                if (exitPhoto) {
+                    uploadImage(exitPhoto, function(photoPath) {
+                        submitVehicleExit(transactionId, fee, isPaid, photoPath);
+                    });
+                } else {
+                    submitVehicleExit(transactionId, fee, isPaid, null);
+                }
+            });
+            
+            // Event handler untuk melihat detail transaksi
+            $(document).on('click', '.transaction-item', function() {
+                const transactionId = $(this).data('id');
+                $.get(`/api/ParkingTransaction/GetById/${transactionId}`, function(data) {
+                    showTransactionDetails(data);
+                });
+            });
+            
+            // Event handler untuk tombol cetak tanda terima
+            $('#print-receipt').on('click', function() {
+                const transactionId = $('#transaction-details').data('id');
+                window.open(`/Parking/PrintReceipt/${transactionId}`, '_blank');
+            });
+            
+            // Render parking spaces
+            function renderParkingSpaces(spaces) {
+                const container = $('#parking-spaces-container');
+                container.empty();
+                
+                spaces.forEach(space => {
+                    const spaceElement = $(`
+                        <div class="parking-space ${space.isOccupied ? 'occupied' : 'available'}" data-id="${space.id}">
+                            <div class="space-number">${space.number}</div>
+                            <div class="space-type">${space.type}</div>
+                            <div class="status-text">${space.isOccupied ? 'Terisi' : 'Kosong'}</div>
+                        </div>
+                    `);
+                    
+                    container.append(spaceElement);
+                });
+            }
+            
+            // Update statistik parkir
+            function updateParkingStats(spaces) {
+                const total = spaces.length;
+                const occupied = spaces.filter(s => s.isOccupied).length;
+                const available = total - occupied;
+                
+                $('#total-spaces').text(total);
+                $('#available-spaces').text(available);
+                $('#occupied-spaces').text(occupied);
+            }
+            
+            // Render recent transactions
+            function renderRecentTransactions(transactions) {
+                const container = $('#transactions-list');
+                container.empty();
+                
+                transactions.forEach(transaction => {
+                    const type = transaction.exitTime ? 'exit' : 'entry';
+                    const itemHtml = `
+                        <div class="transaction-item ${type}" data-id="${transaction.id}">
+                            <div class="transaction-header">
+                                <span class="plate-number">${transaction.vehicle?.plateNumber || "Tidak diketahui"}</span>
+                                <span class="time">${formatDateTime(type === "entry" ? transaction.entryTime : transaction.exitTime)}</span>
+                            </div>
+                            <div class="transaction-details">
+                                <span class="space">Ruang: ${transaction.parkingSpace?.number || "N/A"}</span>
+                                <span class="status">${type === "entry" ? "Masuk" : "Keluar"}</span>
+                                ${type === "exit" ? `<span class="fee">Biaya: Rp${transaction.fee.toLocaleString()}</span>` : ""}
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.append(itemHtml);
+                });
+            }
+            
+            // Submit vehicle entry
+            function submitVehicleEntry(plateNumber, vehicleType, photoPath) {
+                parkingService.vehicleEntry(plateNumber, vehicleType, '@User.Identity?.Name', photoPath)
+                    .then(response => {
+                        if (response.success) {
+                            showAlert('success', 'Kendaraan berhasil masuk parkir!');
+                            $('#vehicle-entry-form')[0].reset();
+                        } else {
+                            showAlert('danger', response.message || 'Gagal memproses kendaraan masuk.');
+                        }
+                    })
+                    .catch(error => {
+                        showAlert('danger', `Error: ${error.message}`);
+                    });
+            }
+            
+            // Submit vehicle exit
+            function submitVehicleExit(transactionId, fee, isPaid, photoPath) {
+                parkingService.vehicleExit(transactionId, fee, isPaid, photoPath)
+                    .then(response => {
+                        if (response.success) {
+                            showAlert('success', 'Kendaraan berhasil keluar parkir!');
+                            $('#vehicle-exit-form')[0].reset();
+                            
+                            // Tampilkan modal terima kasih dengan detail transaksi
+                            showTransactionDetails(response.data);
+                            $('#transaction-detail-modal').modal('show');
+                        } else {
+                            showAlert('danger', response.message || 'Gagal memproses kendaraan keluar.');
+                        }
+                    })
+                    .catch(error => {
+                        showAlert('danger', `Error: ${error.message}`);
+                    });
+            }
+            
+            // Show transaction details
+            function showTransactionDetails(transaction) {
+                $('#transaction-details').data('id', transaction.id);
+                $('#vehicle-plate').text(transaction.vehicle?.plateNumber || "N/A");
+                $('#entry-time').text(formatDateTime(transaction.entryTime));
+                $('#exit-time').text(transaction.exitTime ? formatDateTime(transaction.exitTime) : "Belum keluar");
+                $('#parking-fee').text(`Rp${transaction.fee.toLocaleString()}`);
+                $('#payment-status').text(transaction.isPaid ? "Dibayar" : "Belum dibayar");
+                
+                if (transaction.entryPhotoPath) {
+                    $('#entry-image').attr('src', transaction.entryPhotoPath).show();
+                } else {
+                    $('#entry-image').hide();
+                }
+                
+                if (transaction.exitPhotoPath) {
+                    $('#exit-image').attr('src', transaction.exitPhotoPath).show();
+                    $('#exit-image-container').show();
+                } else {
+                    $('#exit-image-container').hide();
+                }
+                
+                $('#transaction-detail-modal').modal('show');
+            }
+            
+            // Upload image and get the path
+            function uploadImage(file, callback) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                $.ajax({
+                    url: '/api/Upload/Image',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        callback(response.filePath);
+                    },
+                    error: function() {
+                        showAlert('danger', 'Gagal mengunggah gambar.');
+                        callback(null);
+                    }
+                });
+            }
+            
+            // Show alert
+            function showAlert(type, message) {
+                const alertHtml = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                `;
+                
+                $('.dashboard-content').prepend(alertHtml);
+                
+                // Auto dismiss after 5 seconds
+                setTimeout(() => {
+                    $('.alert').alert('close');
+                }, 5000);
+            }
+        });
+    </script>
+} 

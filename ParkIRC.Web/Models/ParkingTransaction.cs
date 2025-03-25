@@ -6,85 +6,120 @@ namespace ParkIRC.Models
 {
     public class ParkingTransaction
     {
-        public ParkingTransaction()
-        {
-            // Initialize required string properties
-            TransactionNumber = string.Empty;
-            PaymentStatus = "Pending";
-            PaymentMethod = string.Empty;
-            Status = "Active";
-            OperatorId = string.Empty;
-            EntryPoint = string.Empty;
-            TicketNumber = string.Empty;
-            VehicleId = string.Empty;
-            VehicleNumber = string.Empty;
-            VehicleType = string.Empty;
-            ParkingSpaceId = string.Empty;
-            ImagePath = string.Empty;
-        }
+        [Key]
+        public int Id { get; set; }
 
-        public string Id { get; set; } = string.Empty;
+        [Display(Name = "Transaction Number")]
+        public string TransactionNumber { get; set; } = string.Empty;
+        
+        [Display(Name = "Ticket Number")]
+        public string TicketNumber { get; set; } = string.Empty;
 
-        [Required]
-        public string TransactionNumber { get; set; }
-
-        [Required]
-        public string TicketNumber { get; set; }
-
-        [Required]
-        public string VehicleId { get; set; }
-
-        public string ParkingSpaceId { get; set; }
-
-        [Required]
-        public DateTime EntryTime { get; set; }
-
-        public DateTime? ExitTime { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal HourlyRate { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal Amount { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal TotalAmount { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal PaymentAmount { get; set; }
-
-        [Required]
-        public string PaymentStatus { get; set; }
-
-        [Required]
-        public string PaymentMethod { get; set; }
-
-        public DateTime? PaymentTime { get; set; }
-
-        [Required]
-        public string Status { get; set; }
-
-        public string OperatorId { get; set; }
-
-        public string EntryPoint { get; set; }
-
-        public string VehicleNumber { get; set; }
-
-        public string VehicleType { get; set; }
-
-        public string ImagePath { get; set; }
-
-        public bool IsOfflineEntry { get; set; }
-
-        public bool IsManualEntry { get; set; }
+        [Display(Name = "Vehicle ID")]
+        public int VehicleId { get; set; }
 
         [ForeignKey("VehicleId")]
         public virtual Vehicle? Vehicle { get; set; }
+        
+        [NotMapped]
+        [Display(Name = "Vehicle Number")]
+        public string VehicleNumber { 
+            get => Vehicle?.VehicleNumber ?? string.Empty; 
+            set { if (Vehicle != null) Vehicle.VehicleNumber = value; } 
+        }
+        
+        [NotMapped]
+        [Display(Name = "Vehicle Type")]
+        public string VehicleType { 
+            get => Vehicle?.VehicleType ?? string.Empty; 
+            set { if (Vehicle != null) Vehicle.VehicleType = value; } 
+        }
+
+        [Display(Name = "Parking Space ID")]
+        public int? ParkingSpaceId { get; set; }
 
         [ForeignKey("ParkingSpaceId")]
         public virtual ParkingSpace? ParkingSpace { get; set; }
+        
+        [Display(Name = "Entry Point")]
+        public string EntryPoint { get; set; } = string.Empty;
+        
+        [Display(Name = "Exit Point")]
+        public string ExitPoint { get; set; } = string.Empty;
+        
+        [Display(Name = "Manual Entry")]
+        public bool IsManualEntry { get; set; }
+        
+        [Display(Name = "Vehicle Image")]
+        public string ImagePath { get; set; } = string.Empty;
+        
+        [Display(Name = "Vehicle Image Path")]
+        public string VehicleImagePath { get; set; } = string.Empty;
+        
+        [Display(Name = "Entry Photo Path")]
+        public string EntryPhotoPath { get; set; } = string.Empty;
+        
+        [Display(Name = "Exit Photo Path")]
+        public string ExitPhotoPath { get; set; } = string.Empty;
+        
+        [Display(Name = "Operator ID")]
+        public string OperatorId { get; set; } = string.Empty;
 
-        [NotMapped]
-        public TimeSpan Duration => ExitTime.HasValue ? ExitTime.Value - EntryTime : TimeSpan.Zero;
+        [Display(Name = "Entry Time")]
+        public DateTime EntryTime { get; set; }
+
+        [Display(Name = "Exit Time")]
+        public DateTime? ExitTime { get; set; }
+
+        [Display(Name = "Duration (hours)")]
+        public decimal Duration { get; set; }
+
+        [Display(Name = "Hourly Rate")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal HourlyRate { get; set; }
+
+        [Display(Name = "Amount")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Amount { get; set; }
+        
+        [Display(Name = "Total Amount")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TotalAmount { get; set; }
+        
+        [Display(Name = "Payment Amount")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PaymentAmount { get; set; }
+        
+        [Display(Name = "Cost")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Cost { get; set; }
+        
+        [Display(Name = "Fee")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Fee { get; set; }
+
+        [Display(Name = "Payment Status")]
+        public string PaymentStatus { get; set; } = "Pending";
+
+        [Display(Name = "Is Paid")]
+        public bool IsPaid { get; set; } = false;
+
+        [Display(Name = "Payment Method")]
+        public string PaymentMethod { get; set; } = "Cash";
+
+        [Display(Name = "Payment Time")]
+        public DateTime? PaymentTime { get; set; }
+
+        [Display(Name = "Status")]
+        public string Status { get; set; } = "Active";
+        
+        [Display(Name = "Is Offline Entry")]
+        public bool IsOfflineEntry { get; set; } = false;
+        
+        [Display(Name = "Created At")]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        
+        [Display(Name = "Updated At")]
+        public DateTime? UpdatedAt { get; set; }
     }
 }

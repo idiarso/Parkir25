@@ -1,0 +1,165 @@
+@model ExitGateViewModel
+@{
+    ViewData["Title"] = "Exit Gate Operator";
+}
+
+<link rel="stylesheet" href="~/css/exitgate.css" />
+
+<div class="exit-gate-container">
+    <div class="gate-header">
+        <div class="gate-title">
+            <h2>Exit Gate: @Model.GateId</h2>
+            <span class="operator-name">Operator: @Model.OperatorName</span>
+        </div>
+        <div class="gate-status @(Model.Status == "Ready" ? "status-ready" : Model.Status == "Error" ? "status-error" : "status-warning")">
+            <span>@Model.Status</span>
+        </div>
+    </div>
+
+    <div class="device-status">
+        <div class="status-item">
+            <span class="status-label">Camera:</span>
+            <span class="status-indicator @(Model.IsCameraActive ? "active" : "inactive")">
+                @(Model.IsCameraActive ? "Active" : "Inactive")
+            </span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Printer:</span>
+            <span class="status-indicator @(Model.IsPrinterActive ? "active" : "inactive")">
+                @(Model.IsPrinterActive ? "Active" : "Inactive")
+            </span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Mode:</span>
+            <span class="status-indicator @(!Model.IsOfflineMode ? "active" : "warning")">
+                @(!Model.IsOfflineMode ? "Online" : "Offline")
+            </span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Last Sync:</span>
+            <span>@Model.LastSync.ToString("dd/MM/yyyy HH:mm:ss")</span>
+        </div>
+    </div>
+
+    <div class="gate-content">
+        <div class="camera-section">
+            <div class="camera-preview">
+                <div id="camera-placeholder">
+                    <i class="bi bi-camera"></i>
+                    <p>Camera Preview</p>
+                </div>
+                <video id="camera-stream" autoplay playsinline style="display:none;"></video>
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+            </div>
+            <div class="camera-controls">
+                <button id="start-camera" class="btn btn-primary">Start Camera</button>
+                <button id="capture-image" class="btn btn-success" disabled>Capture</button>
+                <button id="stop-camera" class="btn btn-danger" disabled>Stop Camera</button>
+            </div>
+        </div>
+
+        <div class="vehicle-exit">
+            <h3>Vehicle Exit</h3>
+            <form id="exit-form" asp-action="ProcessVehicleExit" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="gate-id" name="GateId" value="@Model.GateId" />
+                <input type="hidden" id="photo-path" name="PhotoPath" value="" />
+                
+                <div class="mb-3">
+                    <label for="plate-number" class="form-label">Plate Number</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="plate-number" name="PlateNumber" required 
+                               placeholder="Enter plate number or scan barcode">
+                        <button type="button" id="find-vehicle" class="btn btn-secondary">Find</button>
+                    </div>
+                </div>
+                
+                <div id="vehicle-info" style="display:none;">
+                    <div class="alert alert-info">
+                        <div class="vehicle-detail">
+                            <div><strong>Vehicle Type:</strong> <span id="vehicle-type"></span></div>
+                            <div><strong>Entry Time:</strong> <span id="entry-time"></span></div>
+                            <div><strong>Duration:</strong> <span id="duration"></span></div>
+                            <div><strong>Parking Space:</strong> <span id="parking-space"></span></div>
+                            <div><strong>Parking Fee:</strong> <span id="parking-fee"></span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="payment-method" class="form-label">Payment Method</label>
+                    <select class="form-select" id="payment-method" name="PaymentMethod">
+                        <option value="Cash">Cash</option>
+                        <option value="Card">Card</option>
+                        <option value="E-Wallet">E-Wallet</option>
+                        <option value="Membership">Membership</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Notes</label>
+                    <textarea class="form-control" id="notes" name="Notes" rows="2" 
+                              placeholder="Any additional notes"></textarea>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="print-receipt" name="PrintReceipt" checked>
+                    <label class="form-check-label" for="print-receipt">Print Receipt</label>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-lg btn-primary" id="process-exit">Process Exit</button>
+                    <button type="button" class="btn btn-secondary" id="open-gate">Open Gate (Emergency)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="recent-exits">
+        <h3>Recent Exits</h3>
+        @if (Model.RecentExits.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Plate</th>
+                            <th>Type</th>
+                            <th>Exit Time</th>
+                            <th>Duration</th>
+                            <th>Fee</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var exit in Model.RecentExits)
+                        {
+                            <tr>
+                                <td>@exit.PlateNumber</td>
+                                <td>@exit.VehicleType</td>
+                                <td>@exit.ExitTime.ToString("HH:mm:ss")</td>
+                                <td>@(Math.Round(exit.Duration.TotalHours, 1)) jam</td>
+                                <td>Rp @exit.Cost.ToString("N0")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary print-again" 
+                                            data-transaction-id="@exit.TransactionId">
+                                        Print Again
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">No recent exits recorded</p>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/signalr/dist/browser/signalr.js"></script>
+    <script src="~/js/exitgate.js"></script>
+} 

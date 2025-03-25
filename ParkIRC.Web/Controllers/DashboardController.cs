@@ -1,14 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ParkIRC.Data;
 using ParkIRC.Models;
+using ParkIRC.Web.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class DashboardController : Controller
@@ -37,17 +39,17 @@ namespace ParkIRC.Controllers
                 var availableSpaces = await _context.ParkingSpaces.CountAsync(s => !s.IsOccupied);
                 
                 var dailyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date == today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date == today)
                     .Select(t => t.TotalAmount)
                     .SumAsync(t => t);
                     
                 var weeklyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date >= weekStart && t.PaymentTime.Date <= today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= weekStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
                     .SumAsync(t => t);
                     
                 var monthlyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date >= monthStart && t.PaymentTime.Date <= today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= monthStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
                     .SumAsync(t => t);
                 
@@ -120,8 +122,8 @@ namespace ParkIRC.Controllers
             
             // Get actual data from database
             var dbHourlyData = await _context.ParkingTransactions
-                .Where(t => t.EntryTime.Date == today)
-                .GroupBy(t => t.EntryTime.Hour)
+                .Where(t => t.EntryTime.HasValue && t.EntryTime.Value.Date == today)
+                .GroupBy(t => t.EntryTime.Value.Hour)
                 .Select(g => new OccupancyData
                 {
                     Hour = $"{g.Key:D2}:00",

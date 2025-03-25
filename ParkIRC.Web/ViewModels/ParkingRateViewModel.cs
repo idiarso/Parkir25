@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ParkIRC.ViewModels
+namespace ParkIRC.Models.ViewModels
 {
     public class ParkingRateViewModel
     {
@@ -25,5 +25,37 @@ namespace ParkIRC.ViewModels
         public decimal? MonthlyRate { get; set; }
 
         public string? Description { get; set; }
+        
+        [Display(Name = "Tarif Motor")]
+        public decimal MotorcycleRate { get; set; }
+        
+        [Display(Name = "Tarif Mobil")]
+        public decimal CarRate { get; set; }
+        
+        [Display(Name = "Tarif Jam Tambahan")]
+        public decimal AdditionalHourRate { get; set; }
+        
+        [Display(Name = "Tarif Maksimum per Hari")]
+        public decimal MaximumDailyRate { get; set; }
+
+        [Required]
+        [Display(Name = "Tarif Truk per Jam")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif truk per jam tidak boleh negatif")]
+        public decimal TruckHourlyRate { get; set; }
+
+        [Required]
+        [Display(Name = "Tarif Bus per Jam")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif bus per jam tidak boleh negatif")]
+        public decimal BusHourlyRate { get; set; }
+
+        [Required]
+        [Display(Name = "Tarif Mobil per Jam")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif mobil per jam tidak boleh negatif")]
+        public decimal CarHourlyRate { get; set; }
+
+        [Required]
+        [Display(Name = "Tarif Motor per Jam")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif motor per jam tidak boleh negatif")]
+        public decimal MotorcycleHourlyRate { get; set; }
     }
 } 

@@ -7,6 +7,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+using ParkIRC.Web.ViewModels;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+using OfficeOpenXml;
 
 namespace ParkIRC.Controllers
 {
@@ -14,63 +19,105 @@ namespace ParkIRC.Controllers
     public class HistoryController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<HistoryController> _logger;
 
-        public HistoryController(ApplicationDbContext context)
+        public HistoryController(ApplicationDbContext context, ILogger<HistoryController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
-        public async Task<IActionResult> Index(string searchString, DateTime? startDate = null, DateTime? endDate = null, string? vehicleType = null)
+        [HttpGet]
+        public async Task<IActionResult> Index(DateTime? startDate = null, DateTime? endDate = null)
         {
-            var transactions = _context.ParkingTransactions
-                .Include(t => t.Vehicle)
-                .Include(t => t.ParkingSpace)
-                .AsQueryable();
-
-            // Apply filters
-            if (!string.IsNullOrEmpty(searchString))
+            try
             {
-                transactions = transactions.Where(t => t.Vehicle != null && t.Vehicle.VehicleNumber.Contains(searchString));
-            }
+                startDate = startDate ?? DateTime.Today;
+                endDate = endDate ?? DateTime.Today.AddDays(1).AddSeconds(-1);
 
-            if (startDate.HasValue)
-            {
-                transactions = transactions.Where(t => t.EntryTime >= startDate.Value);
-            }
+                var transactions = await _context.ParkingTransactions
+                    .Include(t => t.Vehicle)
+                    .Include(t => t.ParkingSpace)
+                    .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                    .OrderByDescending(t => t.EntryTime)
+                    .Select(t => new TransactionHistoryItem
+                    {
+                        Id = t.TransactionNumber,
+                        TicketNumber = t.TicketNumber,
+                        PlateNumber = t.Vehicle?.VehicleNumber ?? string.Empty,
+                        VehicleType = t.Vehicle?.VehicleType ?? string.Empty,
+                        EntryTime = t.EntryTime,
+                        ExitTime = t.ExitTime,
+                        Duration = t.ExitTime.HasValue ? t.ExitTime.Value - t.EntryTime : TimeSpan.Zero,
+                        Amount = t.TotalAmount,
+                        PaymentStatus = t.PaymentStatus,
+                        PaymentMethod = t.PaymentMethod,
+                        PaymentTime = t.PaymentTime,
+                        EntryGate = t.EntryPoint,
+                        ExitGate = t.ExitPoint,
+                        EntryOperator = t.OperatorId,
+                        ExitOperator = t.ExitOperatorId,
+                        Status = t.Status,
+                        IsPaid = t.PaymentStatus == "Paid"
+                    })
+                    .ToListAsync();
 
-            if (endDate.HasValue)
-            {
-                transactions = transactions.Where(t => t.EntryTime <= endDate.Value.AddDays(1));
-            }
-
-            if (!string.IsNullOrEmpty(vehicleType))
-            {
-                transactions = transactions.Where(t => t.Vehicle != null && t.Vehicle.VehicleType == vehicleType);
-            }
-
-            // Get transactions and add to view model
-            var model = await transactions
-                .OrderByDescending(t => t.EntryTime)
-                .Select(t => new ParkingActivityViewModel
+                var model = new HistoryViewModel
                 {
-                    VehicleNumber = t.Vehicle != null ? t.Vehicle.VehicleNumber : "Unknown",
-                    EntryTime = t.EntryTime,
-                    ExitTime = t.ExitTime != default(DateTime) ? t.ExitTime : null,
-                    Duration = t.ExitTime != default(DateTime) ? 
-                        (t.ExitTime - t.EntryTime).ToString(@"hh\:mm\:ss") : 
-                        "In Progress",
-                    Amount = t.TotalAmount,
-                    Status = t.ExitTime != default(DateTime) ? "Completed" : "In Progress"
-                })
-                .ToListAsync();
+                    Transactions = transactions,
+                    StartDate = startDate.Value,
+                    EndDate = endDate.Value,
+                    TotalRevenue = transactions.Sum(t => decimal.Parse(t.TotalAmount.Replace("$", "").Replace(",", ""))),
+                    TotalTransactions = transactions.Count
+                };
 
-            // Pass filter values to view
-            ViewData["CurrentFilter"] = searchString;
-            ViewData["StartDate"] = startDate;
-            ViewData["EndDate"] = endDate;
-            ViewData["VehicleType"] = vehicleType;
+                return View(model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving transaction history");
+                return View(new HistoryViewModel());
+            }
+        }
 
-            return View(model);
+        [HttpGet]
+        public async Task<IActionResult> Export(DateTime? startDate = null, DateTime? endDate = null, string format = "excel")
+        {
+            try
+            {
+                startDate = startDate ?? DateTime.Today;
+                endDate = endDate ?? DateTime.Today.AddDays(1).AddSeconds(-1);
+
+                var transactions = await _context.ParkingTransactions
+                    .Include(t => t.Vehicle)
+                    .Include(t => t.ParkingSpace)
+                    .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                    .OrderByDescending(t => t.EntryTime)
+                    .Select(t => new
+                    {
+                        VehicleNumber = t.Vehicle.VehicleNumber,
+                        EntryTime = t.EntryTime.ToString("dd/MM/yyyy HH:mm:ss"),
+                        ExitTime = t.ExitTime.HasValue ? t.ExitTime.Value.ToString("dd/MM/yyyy HH:mm:ss") : "-",
+                        Duration = t.Duration.HasValue ? $"{Math.Floor(t.Duration.Value.TotalHours)}h {t.Duration.Value.Minutes}m" : "-",
+                        TotalAmount = t.TotalAmount.ToString("C"),
+                        Status = t.IsPaid ? "Paid" : "Unpaid"
+                    })
+                    .ToListAsync();
+
+                if (format.Equals("excel", StringComparison.OrdinalIgnoreCase))
+                {
+                    return File(GenerateExcel(transactions), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"parking_history_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
+                }
+                else
+                {
+                    return File(GeneratePdf(transactions), "application/pdf", $"parking_history_{DateTime.Now:yyyyMMddHHmmss}.pdf");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting transaction history");
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         public async Task<IActionResult> Details(int? id)
@@ -93,49 +140,85 @@ namespace ParkIRC.Controllers
             return View(transaction);
         }
 
-        public async Task<IActionResult> Export(DateTime? startDate = null, DateTime? endDate = null)
+        private byte[] GenerateExcel(dynamic data)
         {
-            var transactions = _context.ParkingTransactions
-                .Include(t => t.Vehicle)
-                .Include(t => t.ParkingSpace)
-                .AsQueryable();
-
-            if (startDate.HasValue)
+            using (var package = new ExcelPackage())
             {
-                transactions = transactions.Where(t => t.EntryTime >= startDate.Value);
-            }
+                var worksheet = package.Workbook.Worksheets.Add("Transaction History");
+                
+                // Add headers
+                worksheet.Cells[1, 1].Value = "Vehicle Number";
+                worksheet.Cells[1, 2].Value = "Entry Time";
+                worksheet.Cells[1, 3].Value = "Exit Time";
+                worksheet.Cells[1, 4].Value = "Duration";
+                worksheet.Cells[1, 5].Value = "Amount";
+                worksheet.Cells[1, 6].Value = "Status";
 
-            if (endDate.HasValue)
-            {
-                transactions = transactions.Where(t => t.EntryTime <= endDate.Value.AddDays(1));
-            }
-
-            var data = await transactions
-                .OrderByDescending(t => t.EntryTime)
-                .Select(t => new
+                // Add data
+                int row = 2;
+                foreach (var item in data)
                 {
-                    TransactionNumber = t.TransactionNumber,
-                    VehicleNumber = t.Vehicle != null ? t.Vehicle.VehicleNumber : "Unknown",
-                    VehicleType = t.Vehicle != null ? t.Vehicle.VehicleType : "Unknown",
-                    EntryTime = t.EntryTime,
-                    ExitTime = t.ExitTime != default(DateTime) ? t.ExitTime.ToString() : "In Progress",
-                    Duration = t.ExitTime != default(DateTime) ?
-                        (t.ExitTime - t.EntryTime).ToString(@"hh\:mm\:ss") :
-                        "In Progress",
-                    Amount = t.TotalAmount,
-                    PaymentStatus = t.PaymentStatus,
-                    PaymentMethod = t.PaymentMethod
-                })
-                .ToListAsync();
+                    worksheet.Cells[row, 1].Value = item.VehicleNumber;
+                    worksheet.Cells[row, 2].Value = item.EntryTime;
+                    worksheet.Cells[row, 3].Value = item.ExitTime;
+                    worksheet.Cells[row, 4].Value = item.Duration;
+                    worksheet.Cells[row, 5].Value = item.TotalAmount;
+                    worksheet.Cells[row, 6].Value = item.Status;
+                    row++;
+                }
 
-            // Convert to CSV
-            var csv = "Transaction Number,Vehicle Number,Vehicle Type,Entry Time,Exit Time,Duration,Amount,Payment Status,Payment Method\n";
-            foreach (var item in data)
-            {
-                csv += $"\"{item.TransactionNumber}\",\"{item.VehicleNumber}\",\"{item.VehicleType}\",\"{item.EntryTime}\",\"{item.ExitTime}\",\"{item.Duration}\",\"{item.Amount}\",\"{item.PaymentStatus}\",\"{item.PaymentMethod}\"\n";
+                // Auto-fit columns
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                return package.GetAsByteArray();
             }
+        }
 
-            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", $"parking-history-{DateTime.Now:yyyyMMdd}.csv");
+        private byte[] GeneratePdf(dynamic data)
+        {
+            using (var ms = new MemoryStream())
+            {
+                var document = new Document(PageSize.A4.Rotate(), 25, 25, 30, 30);
+                var writer = PdfWriter.GetInstance(document, ms);
+
+                document.Open();
+
+                // Add title
+                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
+                var title = new Paragraph("Transaction History Report", titleFont);
+                title.Alignment = Element.ALIGN_CENTER;
+                title.SpacingAfter = 20f;
+                document.Add(title);
+
+                // Create table
+                var table = new PdfPTable(6) { WidthPercentage = 100 };
+
+                // Add headers
+                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
+                table.AddCell(new PdfPCell(new Phrase("Vehicle Number", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Entry Time", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Exit Time", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Duration", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Amount", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Status", headerFont)));
+
+                // Add data
+                var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
+                foreach (var item in data)
+                {
+                    table.AddCell(new PdfPCell(new Phrase(item.VehicleNumber, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.EntryTime, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.ExitTime, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.Duration, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.TotalAmount, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.Status, cellFont)));
+                }
+
+                document.Add(table);
+                document.Close();
+
+                return ms.ToArray();
+            }
         }
     }
 } 

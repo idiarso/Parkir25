@@ -1,42 +1,48 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace ParkIRC.ViewModels
+namespace ParkIRC.Web.ViewModels
 {
     public class LoginViewModel
     {
-        [Required]
-        [EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Username wajib diisi")]
+        [Display(Name = "Username")]
+        public string Username { get; set; } = string.Empty;
 
-        [Required]
+        [Required(ErrorMessage = "Password wajib diisi")]
+        [Display(Name = "Password")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
-        [Display(Name = "Remember me?")]
+        [Display(Name = "Ingat Saya")]
         public bool RememberMe { get; set; }
     }
 
     public class ForgotPasswordViewModel
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "Email wajib diisi")]
+        [EmailAddress(ErrorMessage = "Format email tidak valid")]
+        [Display(Name = "Email")]
         public string Email { get; set; } = string.Empty;
     }
 
     public class ResetPasswordViewModel
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "Email wajib diisi")]
+        [EmailAddress(ErrorMessage = "Format email tidak valid")]
+        [Display(Name = "Email")]
         public string Email { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 8)]
+        [Required(ErrorMessage = "Password wajib diisi")]
+        [Display(Name = "Password")]
         [DataType(DataType.Password)]
+        [StringLength(100, MinimumLength = 6)]
         public string Password { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Konfirmasi password wajib diisi")]
+        [Display(Name = "Konfirmasi Password")]
         [DataType(DataType.Password)]
-        [Display(Name = "Confirm password")]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        [Compare("Password", ErrorMessage = "Password tidak cocok")]
         public string ConfirmPassword { get; set; } = string.Empty;
 
         public string Code { get; set; } = string.Empty;

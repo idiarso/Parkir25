@@ -4,11 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ParkIRC.Data;
 using ParkIRC.Models;
-using ParkIRC.Models.ViewModels;
+using ParkIRC.Web.ViewModels;
 using ParkIRC.Services;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
+using ParkIRC.Hubs;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace ParkIRC.Controllers
 {
@@ -20,8 +24,9 @@ namespace ParkIRC.Controllers
         private readonly ConnectionStatusService _connectionStatusService;
         private readonly CameraService _cameraService;
         private readonly StorageService _storageService;
-        private readonly TicketService _ticketService;
-        private readonly PrinterService _printerService;
+        private readonly ITicketService _ticketService;
+        private readonly IPrinterService _printerService;
+        private readonly IHubContext<ParkingHub> _parkingHubContext;
 
         public EntryGateController(
             ApplicationDbContext context,
@@ -29,8 +34,9 @@ namespace ParkIRC.Controllers
             ConnectionStatusService connectionStatusService,
             CameraService cameraService,
             StorageService storageService,
-            TicketService ticketService,
-            PrinterService printerService)
+            ITicketService ticketService,
+            IPrinterService printerService,
+            IHubContext<ParkingHub> parkingHubContext)
         {
             _context = context;
             _logger = logger;
@@ -39,6 +45,7 @@ namespace ParkIRC.Controllers
             _storageService = storageService;
             _ticketService = ticketService;
             _printerService = printerService;
+            _parkingHubContext = parkingHubContext;
         }
 
         public async Task<IActionResult> Index()
@@ -143,33 +150,26 @@ namespace ParkIRC.Controllers
         public async Task<IActionResult> CaptureEntry([FromBody] EntryRequest request)
         {
             try {
-                // Capture foto kendaraan
-                var imageBytes = await _cameraService.CaptureImage();
+                // Capture vehicle photo
+                var imageBytes = await _cameraService.TakePhoto();
                 
-                // Generate nama file unik
+                // Generate unique filename
                 string fileName = $"{DateTime.Now:yyyyMMddHHmmss}_{request.GateId}.jpg";
                 
-                // Simpan foto
-                await _storageService.SaveImage(imageBytes, fileName);
+                // Save photo
+                string imagePath = await _storageService.SaveImage(fileName, imageBytes);
                 
-                // Buat transaksi parkir
-                var transaction = new ParkingTransaction 
+                // Create parking transaction
+                var ticket = await _ticketService.GenerateTicketAsync(new Vehicle
                 {
-                    TicketNumber = GenerateTicketNumber(),
-                    EntryTime = DateTime.Now,
-                    EntryPoint = request.GateId,
-                    VehicleImagePath = fileName,
-                    VehicleNumber = request.VehicleNumber, // Input manual
-                    VehicleType = request.VehicleType,     // Input manual/preset
-                    IsManualEntry = true
-                };
-
-                await _context.ParkingTransactions.AddAsync(transaction);
-                await _context.SaveChangesAsync();
+                    VehicleNumber = request.VehicleNumber,
+                    VehicleType = request.VehicleType,
+                    EntryTime = DateTime.Now
+                }, User.GetOperatorId());
 
                 return Ok(new { 
-                    ticketNumber = transaction.TicketNumber,
-                    imagePath = fileName
+                    ticketNumber = ticket.TicketNumber,
+                    imagePath = imagePath
                 });
             }
             catch (Exception ex) {
@@ -185,27 +185,36 @@ namespace ParkIRC.Controllers
             {
                 // Automatic space assignment
                 var availableSpace = await _context.ParkingSpaces
-                    .Where(s => !s.IsOccupied && s.VehicleType == request.VehicleType)
+                    .Where(s => !s.IsOccupied && s.SpaceType == request.VehicleType)
                     .OrderBy(s => s.SpaceNumber)
                     .FirstOrDefaultAsync();
 
                 if (availableSpace == null)
                 {
-                    return BadRequest(new { message = "Tidak ada slot parkir tersedia" });
+                    return BadRequest(new { message = "No parking space available" });
                 }
 
-                // Generate ticket number
-                string ticketNumber = await _ticketService.GenerateTicketNumber(request.VehicleType);
+                // Create vehicle
+                var vehicle = new Vehicle
+                {
+                    VehicleNumber = request.VehicleNumber,
+                    VehicleType = request.VehicleType,
+                    EntryTime = DateTime.Now
+                };
+
+                // Generate ticket
+                var ticket = await _ticketService.GenerateTicketAsync(vehicle, User.GetOperatorId());
 
                 // Create transaction
                 var transaction = new ParkingTransaction
                 {
-                    TicketNumber = ticketNumber,
-                    VehicleNumber = request.VehicleNumber,
+                    TicketNumber = ticket.TicketNumber,
+                    Vehicle = vehicle,
                     EntryTime = DateTime.Now,
                     ParkingSpaceId = availableSpace.Id,
-                    VehicleType = request.VehicleType,
-                    ImagePath = request.ImagePath
+                    EntryPoint = request.GateId,
+                    ImagePath = request.ImagePath,
+                    OperatorId = User.GetOperatorId()
                 };
 
                 _context.ParkingTransactions.Add(transaction);
@@ -217,10 +226,10 @@ namespace ParkIRC.Controllers
                 await _context.SaveChangesAsync();
 
                 // Print ticket
-                await _printerService.PrintEntryTicket(transaction);
+                await _printerService.PrintTicketAsync(ticket.TicketNumber);
 
                 return Ok(new { 
-                    ticketNumber = ticketNumber,
+                    ticketNumber = ticket.TicketNumber,
                     spaceNumber = availableSpace.SpaceNumber
                 });
             }
@@ -229,6 +238,183 @@ namespace ParkIRC.Controllers
                 _logger.LogError(ex, "Error in automatic space assignment");
                 return StatusCode(500);
             }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ProcessVehicleEntry(VehicleEntryRequest request)
+        {
+            try
+            {
+                // Cari kendaraan berdasarkan nomor plat atau buat baru jika belum ada
+                var vehicle = await _context.Vehicles
+                    .FirstOrDefaultAsync(v => v.PlateNumber == request.PlateNumber);
+
+                if (vehicle == null)
+                {
+                    vehicle = new Vehicle
+                    {
+                        PlateNumber = request.PlateNumber,
+                        Type = request.VehicleType,
+                        CreatedAt = DateTime.Now,
+                        IsActive = true
+                    };
+                    _context.Vehicles.Add(vehicle);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Cari space parkir yang tersedia
+                var parkingSpace = await _context.ParkingSpaces
+                    .FirstOrDefaultAsync(ps => ps.IsActive && !ps.IsOccupied && ps.Type == request.VehicleType);
+
+                if (parkingSpace == null)
+                {
+                    TempData["ErrorMessage"] = "Tidak ada ruang parkir tersedia untuk jenis kendaraan ini";
+                    return RedirectToAction(nameof(Operator), new { gateId = request.GateId });
+                }
+
+                // Buat entry vehicle baru
+                var vehicleEntry = new VehicleEntry
+                {
+                    PlateNumber = request.PlateNumber,
+                    VehicleType = request.VehicleType,
+                    EntryTime = DateTime.Now,
+                    EntryPhotoPath = request.PhotoPath,
+                    VehicleId = vehicle.Id,
+                    ParkingSpaceId = parkingSpace.Id,
+                    OperatorId = User.Identity.Name,
+                    Notes = request.Notes
+                };
+
+                _context.VehicleEntries.Add(vehicleEntry);
+
+                // Buat transaksi parkir baru
+                var transaction = new ParkingTransaction
+                {
+                    VehicleId = vehicle.Id,
+                    ParkingSpaceId = parkingSpace.Id,
+                    EntryTime = DateTime.Now,
+                    OperatorId = User.Identity.Name,
+                    EntryPhotoPath = request.PhotoPath,
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.ParkingTransactions.Add(transaction);
+
+                // Update status ruang parkir menjadi terisi
+                parkingSpace.IsOccupied = true;
+                _context.ParkingSpaces.Update(parkingSpace);
+
+                await _context.SaveChangesAsync();
+
+                // Kirim notifikasi melalui SignalR
+                await _parkingHubContext.Clients.All.SendAsync("ReceiveVehicleEntry", transaction);
+                await _parkingHubContext.Clients.All.SendAsync("ReceiveSpaceUpdate", parkingSpace);
+                
+                // Cetak tiket jika diminta
+                if (request.PrintTicket)
+                {
+                    await _parkingHubContext.Clients.All.SendAsync("PrintTicket", new
+                    {
+                        plateNumber = request.PlateNumber,
+                        vehicleType = request.VehicleType,
+                        entryTime = transaction.EntryTime,
+                        transactionId = transaction.Id
+                    });
+                }
+                
+                // Buka palang
+                await _parkingHubContext.Clients.All.SendAsync("OpenEntryGate", request.GateId);
+
+                TempData["SuccessMessage"] = "Kendaraan berhasil masuk area parkir";
+                return RedirectToAction(nameof(Operator), new { gateId = request.GateId });
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Terjadi kesalahan: {ex.Message}";
+                return RedirectToAction(nameof(Operator), new { gateId = request.GateId });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ProcessButtonPress(string gateId)
+        {
+            try
+            {
+                // Kirim notifikasi ke semua klien bahwa tombol masuk ditekan
+                await _parkingHubContext.Clients.All.SendAsync("EntryButtonPressed", gateId);
+                
+                // Kirim perintah ke kamera untuk mengambil gambar
+                await _parkingHubContext.Clients.All.SendAsync("TriggerCamera", gateId);
+                
+                return Ok(new { success = true, message = "Push button processed" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> PrintTicket(int transactionId)
+        {
+            try
+            {
+                var transaction = await _context.ParkingTransactions
+                    .Include(t => t.Vehicle)
+                    .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+                if (transaction == null)
+                {
+                    return NotFound(new { success = false, message = "Transaksi tidak ditemukan" });
+                }
+
+                // Kirim perintah untuk mencetak tiket
+                await _parkingHubContext.Clients.All.SendAsync("PrintTicket", new
+                {
+                    plateNumber = transaction.Vehicle?.PlateNumber,
+                    vehicleType = transaction.Vehicle?.Type,
+                    entryTime = transaction.EntryTime,
+                    transactionId = transaction.Id
+                });
+
+                return Ok(new { success = true, message = "Print command sent" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Operator(string gateId = "GATE-01")
+        {
+            var currentUser = await _context.Users.FirstOrDefaultAsync(u => u.UserName == User.Identity.Name);
+            
+            if (currentUser == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            // Retrieve recent vehicle entries
+            var recentEntries = await _context.VehicleEntries
+                .OrderByDescending(ve => ve.EntryTime)
+                .Take(10)
+                .ToListAsync();
+
+            var viewModel = new EntryGateViewModel
+            {
+                GateId = gateId,
+                OperatorName = $"{currentUser.FirstName} {currentUser.LastName}",
+                Status = "Ready",
+                IsCameraActive = false,
+                IsPrinterActive = true,
+                IsOfflineMode = false,
+                LastSync = DateTime.Now,
+                RecentEntries = recentEntries
+            };
+
+            return View(viewModel);
         }
     }
 } 

@@ -17,7 +17,7 @@ namespace ParkIRC.Extensions
             }
         }
 
-        public static string GetConnectionString(this IConfiguration configuration, string name, string defaultValue = null)
+        public static string? GetConnectionString(this IConfiguration configuration, string name, string? defaultValue = null)
         {
             try
             {

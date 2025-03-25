@@ -1,8 +1,195 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@model ParkIRC.Web.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="dashboard-container">
+    <h1 class="mt-3 mb-4">ParkIRC Dashboard</h1>
+    
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Spaces</h5>
+                    <h2 class="card-text">@Model.TotalParkingSpaces</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Available Spaces</h5>
+                    <h2 class="card-text">@Model.AvailableParkingSpaces</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Occupied Spaces</h5>
+                    <h2 class="card-text">@Model.OccupiedParkingSpaces</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Occupancy Rate</h5>
+                    <h2 class="card-text">@Model.OccupancyRate.ToString("0.0")%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Entries</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.RecentEntries.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Plate Number</th>
+                                        <th>Type</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var entry in Model.RecentEntries)
+                                    {
+                                        <tr>
+                                            <td>@entry.PlateNumber</td>
+                                            <td>@entry.VehicleType</td>
+                                            <td>@entry.EntryTime.ToString("HH:mm:ss")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No recent entries.</p>
+                    }
+                </div>
+                <div class="card-footer text-center">
+                    <a asp-controller="EntryGate" asp-action="Operator" class="btn btn-primary">Go to Entry Gate</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Exits</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.RecentExits.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Plate Number</th>
+                                        <th>Type</th>
+                                        <th>Time</th>
+                                        <th>Fee</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var exit in Model.RecentExits)
+                                    {
+                                        <tr>
+                                            <td>@exit.PlateNumber</td>
+                                            <td>@exit.VehicleType</td>
+                                            <td>@exit.ExitTime.ToString("HH:mm:ss")</td>
+                                            <td>Rp @exit.Cost.ToString("N0")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No recent exits.</p>
+                    }
+                </div>
+                <div class="card-footer text-center">
+                    <a asp-controller="ExitGate" asp-action="Operator" class="btn btn-secondary">Go to Exit Gate</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Today's Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <h6>Total Transactions Today</h6>
+                            <h3>@Model.TotalTransactionsToday</h3>
+                        </div>
+                        <div>
+                            <h6>Active Transactions</h6>
+                            <h3>@Model.ActiveTransactions</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <a asp-controller="Parking" asp-action="Transactions" class="btn btn-info">View All Transactions</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <a asp-controller="EntryGate" asp-action="Operator" class="btn btn-primary btn-lg btn-block">
+                                <i class="bi bi-box-arrow-in-right"></i> Entry Gate
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a asp-controller="ExitGate" asp-action="Operator" class="btn btn-secondary btn-lg btn-block">
+                                <i class="bi bi-box-arrow-left"></i> Exit Gate
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a asp-controller="Parking" asp-action="Index" class="btn btn-success btn-lg btn-block">
+                                <i class="bi bi-p-square"></i> Parking Spaces
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a asp-controller="Parking" asp-action="Transactions" class="btn btn-info btn-lg btn-block">
+                                <i class="bi bi-card-list"></i> Transactions
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        // Refresh the page every 60 seconds
+        setTimeout(function() {
+            location.reload();
+        }, 60000);
+    </script>
+}

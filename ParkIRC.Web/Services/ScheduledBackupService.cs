@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
+using System.IO.Compression;
 
 namespace ParkIRC.Services
 {

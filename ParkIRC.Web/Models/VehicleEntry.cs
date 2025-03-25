@@ -1,36 +1,53 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ParkIRC.Web.Models
+namespace ParkIRC.Models
 {
     public class VehicleEntry
     {
+        [Key]
         public int Id { get; set; }
-
+        
         [Required]
-        public int VehicleId { get; set; }
-
-        [Required]
-        public int ParkingSpaceId { get; set; }
-
-        [Required]
-        public string OperatorId { get; set; }
-
-        [Required]
-        public DateTime EntryTime { get; set; }
-
+        [StringLength(20)]
+        [Display(Name = "Nomor Plat")]
+        public string PlateNumber { get; set; }
+        
         [Required]
         [StringLength(50)]
-        public string Status { get; set; }
-
+        [Display(Name = "Jenis Kendaraan")]
+        public string VehicleType { get; set; }
+        
+        [Required]
+        [Display(Name = "Waktu Masuk")]
+        public DateTime EntryTime { get; set; }
+        
+        [Display(Name = "Foto Masuk")]
+        public string? EntryPhotoPath { get; set; }
+        
         public string? Notes { get; set; }
-        public string? TicketNumber { get; set; }
-        public string? QRCode { get; set; }
-        public string? ImagePath { get; set; }
-
+        
+        public int VehicleId { get; set; }
+        
+        public int? ParkingSpaceId { get; set; }
+        
+        [Required]
+        [StringLength(100)]
+        public string OperatorId { get; set; }
+        
         // Navigation properties
-        public virtual Vehicle Vehicle { get; set; }
-        public virtual ParkingSpace ParkingSpace { get; set; }
-        public virtual ApplicationUser Operator { get; set; }
+        [ForeignKey("VehicleId")]
+        public virtual Vehicle? Vehicle { get; set; }
+        
+        [ForeignKey("ParkingSpaceId")]
+        public virtual ParkingSpace? ParkingSpace { get; set; }
+        
+        public VehicleEntry()
+        {
+            PlateNumber = string.Empty;
+            VehicleType = "Mobil";
+            EntryTime = DateTime.Now;
+        }
     }
 } 

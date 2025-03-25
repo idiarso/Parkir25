@@ -59,12 +59,13 @@ namespace ParkIRC.Hubs
                 await Clients.User(username).SendAsync("ReceiveNotification", "System", "Welcome to ParkIRC Management Dashboard");
             }
             
+            await Clients.All.SendAsync("UserConnected", connectionId);
             await base.OnConnectedAsync();
         }
 
-        public override Task OnDisconnectedAsync(Exception exception)
+        public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            string username = Context.User.Identity.Name;
+            string username = Context.User.Identity?.Name ?? "unknown";
             
             _logger.LogInformation($"User {username} disconnected");
             
@@ -77,7 +78,8 @@ namespace ParkIRC.Hubs
                 }
             }
             
-            return base.OnDisconnectedAsync(exception);
+            await Clients.All.SendAsync("UserDisconnected", Context.ConnectionId);
+            await base.OnDisconnectedAsync(exception);
         }
         
         // Add method for clients to request the latest system status
@@ -359,14 +361,98 @@ namespace ParkIRC.Hubs
             await _offlineDataService.SaveData(data);
         }
 
-        public async Task SyncOfflineData()
+        public async Task SyncOfflineData(string data)
         {
-            var offlineData = await _offlineDataService.GetPendingData();
-            foreach (var data in offlineData)
+            try
             {
-                // Proses sinkronisasi data
-                await ProcessOfflineData(data);
+                await _offlineDataService.SaveOfflineDataAsync(data);
+                _logger.LogInformation("Offline data saved successfully");
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving offline data");
+            }
+        }
+
+        public async Task CheckPendingSync()
+        {
+            try
+            {
+                var pendingData = await _offlineDataService.GetPendingSyncDataAsync();
+                
+                if (pendingData.Any())
+                {
+                    // Process offline data
+                    foreach (var data in pendingData)
+                    {
+                        // Process each piece of data
+                        // You'll need to implement the logic for ProcessOfflineData
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking pending sync data");
+            }
+        }
+
+        // Event ketika kendaraan masuk area parkir
+        public async Task VehicleEntry(ParkingTransaction transaction)
+        {
+            await Clients.All.SendAsync("ReceiveVehicleEntry", transaction);
+        }
+
+        // Event ketika kendaraan keluar area parkir
+        public async Task VehicleExit(ParkingTransaction transaction)
+        {
+            await Clients.All.SendAsync("ReceiveVehicleExit", transaction);
+        }
+
+        // Event untuk memperbarui status ruang parkir
+        public async Task UpdateParkingSpace(ParkingSpace parkingSpace)
+        {
+            await Clients.All.SendAsync("ReceiveSpaceUpdate", parkingSpace);
+        }
+
+        // Event untuk memperbarui status transaksi
+        public async Task UpdateTransaction(ParkingTransaction transaction)
+        {
+            await Clients.All.SendAsync("ReceiveTransactionUpdate", transaction);
+        }
+
+        public async Task SendMessage(string user, string message)
+        {
+            await Clients.All.SendAsync("ReceiveMessage", user, message);
+        }
+        
+        public async Task SendSystemStatus(object status)
+        {
+            await Clients.All.SendAsync("ReceiveSystemStatus", status);
+        }
+        
+        public async Task TriggerEntryCamera(string gateId)
+        {
+            await Clients.All.SendAsync("TriggerCamera", gateId);
+        }
+        
+        public async Task TriggerExitCamera(string gateId)
+        {
+            await Clients.All.SendAsync("TriggerCamera", gateId);
+        }
+        
+        public async Task PressEntryButton(string gateId)
+        {
+            await Clients.All.SendAsync("EntryButtonPressed", gateId);
+        }
+        
+        public async Task PressExitButton(string gateId)
+        {
+            await Clients.All.SendAsync("ExitButtonPressed", gateId);
+        }
+        
+        public async Task PrintReceipt(object receiptData)
+        {
+            await Clients.All.SendAsync("PrintReceipt", receiptData);
         }
     }
 } 

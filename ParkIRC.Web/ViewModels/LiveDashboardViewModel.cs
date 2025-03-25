@@ -1,21 +1,38 @@
+using System;
+using System.Collections.Generic;
 using ParkIRC.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace ParkIRC.ViewModels
+namespace ParkIRC.Web.ViewModels
 {
     public class LiveDashboardViewModel
     {
         public int TotalSpaces { get; set; }
         public int AvailableSpaces { get; set; }
         public int OccupiedSpaces { get; set; }
+        public decimal OccupancyRate { get; set; }
+        public decimal DailyRevenue { get; set; }
         public decimal TodayRevenue { get; set; }
-        public List<VehicleDistributionItem> VehicleDistribution { get; set; } = new();
-        public PaginatedList<ParkingTransaction> RecentActivities { get; set; } = new(new List<ParkingTransaction>(), 0, 1, 10);
-        public int CurrentPage { get; set; } = 1;
-        public int PageSize { get; set; } = 10;
+        public List<ParkingActivity> RecentActivity { get; set; } = new();
+        public PaginatedList<ParkingActivity> RecentActivities { get; set; } = new(new List<ParkingActivity>(), 0, 1, 10);
+        public List<OccupancyData> HourlyOccupancy { get; set; } = new();
+        public List<VehicleDistributionData> VehicleDistribution { get; set; } = new();
+        public List<ParkingSpaceViewModel> ParkingSpaces { get; set; } = new();
+        public List<AlertMessage> Alerts { get; set; } = new();
+        
+        // Pagination properties
+        public int CurrentPage { get; set; }
+        public int PageSize { get; set; }
         public int TotalPages { get; set; }
-        public bool HasPreviousPage => CurrentPage > 1;
-        public bool HasNextPage => CurrentPage < TotalPages;
+        public bool HasPreviousPage { get; set; }
+        public bool HasNextPage { get; set; }
+    }
+
+    public class AlertMessage
+    {
+        public string Type { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
     }
 
     public class VehicleDistributionItem

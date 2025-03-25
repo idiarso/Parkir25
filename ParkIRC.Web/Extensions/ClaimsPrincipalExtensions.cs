@@ -99,6 +99,11 @@ namespace ParkIRC.Extensions
             return principal?.IsInRole("Manager") ?? false;
         }
 
+        public static string GetOperatorId(this ClaimsPrincipal principal)
+        {
+            return principal?.FindFirst("OperatorId")?.Value ?? string.Empty;
+        }
+
         public static bool IsStaff(this ClaimsPrincipal principal)
         {
             return principal?.IsInRole("Staff") ?? false;

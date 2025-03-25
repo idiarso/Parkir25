@@ -11,18 +11,11 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using ParkIRC.Data;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ParkIRC.Services
 {
-    public interface IPrinterService
-    {
-        Task<bool> PrintTicket(ParkingTicket ticket);
-        Task<bool> PrintReceipt(ParkingTransaction transaction);
-        bool CheckPrinterStatus();
-        string GetDefaultPrinter();
-        List<string> GetAvailablePrinters();
-    }
-
     public class PrinterService : IPrinterService
     {
         private readonly ILogger<PrinterService> _logger;
@@ -49,7 +42,8 @@ namespace ParkIRC.Services
             _logger = logger;
             _context = context;
             _configuration = configuration;
-            _printerWebSocketUrl = _configuration["PrinterSettings:WebSocketUrl"];
+            _defaultPrinter = _configuration["Printer:DefaultPrinter"] ?? "Default Printer";
+            _printerWebSocketUrl = _configuration["Printer:WebSocketUrl"] ?? "ws://localhost:8080/printer";
             _printerStatuses = new Dictionary<string, PrinterStatus>();
             _webSocket = new ClientWebSocket();
             if (OperatingSystem.IsWindows())
@@ -573,30 +567,124 @@ namespace ParkIRC.Services
         {
             return _printerStatuses;
         }
+
+        public async Task<bool> PrintTicketAsync(string ticketNumber, string plateNumber, DateTime entryTime, string vehicleType)
+        {
+            try
+            {
+                var ticketData = new TicketData
+                {
+                    TicketNumber = ticketNumber,
+                    VehicleNumber = plateNumber,
+                    EntryTime = entryTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Barcode = GenerateBarcode(ticketNumber)
+                };
+
+                return await PrintTicket(GetDefaultPrinter(), ticketData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to print ticket");
+                return false;
+            }
+        }
+
+        public async Task<bool> PrintEntryTicket(string ticketNumber, string plateNumber, DateTime entryTime, string vehicleType)
+        {
+            return await PrintTicketAsync(ticketNumber, plateNumber, entryTime, vehicleType);
+        }
+
+        public async Task<bool> PrintExitTicket(string ticketNumber, string plateNumber, DateTime entryTime, DateTime exitTime, decimal amount)
+        {
+            try
+            {
+                var ticketData = new TicketData
+                {
+                    TicketNumber = ticketNumber,
+                    VehicleNumber = plateNumber,
+                    EntryTime = entryTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ExitTime = exitTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Amount = amount.ToString("C"),
+                    Barcode = GenerateBarcode(ticketNumber)
+                };
+
+                return await PrintTicket(GetDefaultPrinter(), ticketData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to print exit ticket");
+                return false;
+            }
+        }
+
+        public async Task<bool> TestPrint()
+        {
+            try
+            {
+                var testData = new TicketData
+                {
+                    TicketNumber = "TEST123",
+                    VehicleNumber = "TEST",
+                    EntryTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Barcode = GenerateBarcode("TEST123")
+                };
+
+                return await PrintTicket(GetDefaultPrinter(), testData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to perform test print");
+                return false;
+            }
+        }
+
+        public async Task<bool> IsPrinterReady()
+        {
+            return CheckPrinterStatus();
+        }
+
+        public async Task<string> GetPrinterStatus()
+        {
+            var status = GetAllPrinterStatus();
+            var defaultPrinter = GetDefaultPrinter();
+            if (status.TryGetValue(defaultPrinter, out var printerStatus))
+            {
+                return printerStatus.IsOnline ? "Ready" : "Offline";
+            }
+            return "Unknown";
+        }
+
+        private string GenerateBarcode(string ticketNumber)
+        {
+            // Implement barcode generation logic here
+            return ticketNumber;
+        }
     }
 
     public class PrinterStatus
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Port { get; set; }
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Port { get; set; } = string.Empty;
         public bool IsOnline { get; set; }
         public DateTime LastChecked { get; set; }
     }
 
     public class PrinterConfig
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Port { get; set; }
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Port { get; set; } = string.Empty;
         public bool IsActive { get; set; }
     }
 
     public class TicketData
     {
-        public string TicketNumber { get; set; }
-        public string VehicleNumber { get; set; }
-        public string EntryTime { get; set; }
-        public string Barcode { get; set; }
+        public string TicketNumber { get; set; } = string.Empty;
+        public string VehicleNumber { get; set; } = string.Empty;
+        public string EntryTime { get; set; } = string.Empty;
+        public string ExitTime { get; set; } = string.Empty;
+        public string Amount { get; set; } = string.Empty;
+        public string Barcode { get; set; } = string.Empty;
     }
 } 

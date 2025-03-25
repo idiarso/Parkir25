@@ -5,7 +5,6 @@ using ParkIRC.Models;
 using ParkIRC.Data;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
-using System.Drawing;
 using System.IO;
 
 namespace ParkIRC.Services
@@ -14,7 +13,8 @@ namespace ParkIRC.Services
     {
         Task<ParkingTicket> GenerateTicketAsync(Vehicle vehicle, string operatorId);
         Task<bool> ValidateTicketAsync(string ticketNumber);
-        Task<string> GenerateQRCodeAsync(string data);
+        Task<string> GenerateQRCodeAsync(string ticketNumber);
+        Task<bool> PrintTicketAsync(string ticketNumber);
     }
 
     public class TicketService : ITicketService
@@ -39,7 +39,7 @@ namespace ParkIRC.Services
             {
                 var ticketNumber = GenerateTicketNumber();
                 var barcodeData = GenerateBarcodeData(vehicle);
-                var qrCodeImage = await GenerateQRCodeAsync(barcodeData);
+                var qrCodeImage = await GenerateQRCodeAsync(ticketNumber);
 
                 var ticket = new ParkingTicket
                 {
@@ -56,7 +56,7 @@ namespace ParkIRC.Services
                 await _context.ParkingTickets.AddAsync(ticket);
                 await _context.SaveChangesAsync();
 
-                await _printerService.PrintTicketAsync(ticket);
+                await _printerService.PrintTicketAsync(ticket.TicketNumber, vehicle.PlateNumber, DateTime.Now, vehicle.VehicleType);
 
                 return ticket;
             }
@@ -83,29 +83,55 @@ namespace ParkIRC.Services
             }
         }
 
-        public async Task<string> GenerateQRCodeAsync(string data)
+        public async Task<string> GenerateQRCodeAsync(string ticketNumber)
         {
             try
             {
                 using var qrGenerator = new QRCodeGenerator();
-                var qrCodeData = qrGenerator.CreateQrCode(data, QRCodeGenerator.ECCLevel.Q);
-                using var qrCode = new QRCode(qrCodeData);
-                using var qrCodeImage = qrCode.GetGraphic(20);
-                using var ms = new MemoryStream();
-                qrCodeImage.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                var imageBytes = ms.ToArray();
-                return Convert.ToBase64String(imageBytes);
+                var qrCodeData = qrGenerator.CreateQrCode(ticketNumber, QRCodeGenerator.ECCLevel.Q);
+                var qrCode = new PngByteQRCode(qrCodeData);
+                var bytes = qrCode.GetGraphic(20);
+                return Convert.ToBase64String(bytes);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to generate QR code");
+                _logger.LogError(ex, "Error generating QR code for ticket: {TicketNumber}", ticketNumber);
                 return string.Empty;
+            }
+        }
+
+        public async Task<bool> PrintTicketAsync(string ticketNumber)
+        {
+            try
+            {
+                var ticket = await _context.ParkingTickets
+                    .Include(t => t.Vehicle)
+                    .FirstOrDefaultAsync(t => t.TicketNumber == ticketNumber);
+
+                if (ticket == null)
+                {
+                    _logger.LogWarning("Ticket not found: {TicketNumber}", ticketNumber);
+                    return false;
+                }
+
+                var qrCode = await GenerateQRCodeAsync(ticket.TicketNumber);
+                
+                return await _printerService.PrintTicketAsync(
+                    ticket.TicketNumber,
+                    ticket.Vehicle?.VehicleNumber ?? "Unknown",
+                    ticket.EntryTime,
+                    ticket.Vehicle?.VehicleType ?? "Unknown");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error printing ticket: {TicketNumber}", ticketNumber);
+                return false;
             }
         }
 
         private string GenerateTicketNumber()
         {
-            return $"TKT{DateTime.Now:yyyyMMddHHmmss}{new Random().Next(1000, 9999)}";
+            return DateTime.Now.ToString("yyyyMMddHHmmss") + new Random().Next(1000, 9999).ToString();
         }
 
         private string GenerateBarcodeData(Vehicle vehicle)

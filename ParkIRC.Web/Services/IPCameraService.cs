@@ -14,7 +14,7 @@ namespace ParkIRC.Services
     public interface IIPCameraService
     {
         Task<bool> InitializeAsync();
-        Task<string> CaptureImageAsync(string savePath = null);
+        Task<string> CaptureImageAsync(string? savePath = null);
         Task<byte[]> GetSnapshotAsync();
         Task<string> GetStreamUrlAsync();
         Task<bool> TestConnectionAsync();
@@ -26,19 +26,22 @@ namespace ParkIRC.Services
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
         
-        private string _baseUrl;
-        private string _username;
-        private string _password;
+        private readonly string _baseUrl;
+        private readonly string _username;
+        private readonly string _password;
         private string _snapshotUrl;
         private string _streamUrl;
         private string _savePath;
         private bool _isInitialized;
 
-        public IPCameraService(ILogger<IPCameraService> logger, IConfiguration configuration, HttpClient httpClient = null)
+        public IPCameraService(ILogger<IPCameraService> logger, IConfiguration configuration, HttpClient? httpClient = null)
         {
             _logger = logger;
             _configuration = configuration;
             _httpClient = httpClient ?? new HttpClient();
+            _baseUrl = _configuration["IPCamera:BaseUrl"] ?? throw new ArgumentNullException(nameof(configuration), "IPCamera:BaseUrl is not configured");
+            _username = _configuration["IPCamera:Username"] ?? throw new ArgumentNullException(nameof(configuration), "IPCamera:Username is not configured");
+            _password = _configuration["IPCamera:Password"] ?? throw new ArgumentNullException(nameof(configuration), "IPCamera:Password is not configured");
             _isInitialized = false;
         }
 
@@ -50,9 +53,6 @@ namespace ParkIRC.Services
                 
                 // Get camera settings from configuration
                 var cameraSettings = _configuration.GetSection("CameraSettings:IpCamera");
-                _username = cameraSettings["Username"] ?? "admin";
-                _password = cameraSettings["Password"] ?? "admin123";
-                _baseUrl = cameraSettings["BaseUrl"] ?? "http://camera.ip";
                 _snapshotUrl = cameraSettings["SnapshotUrl"] ?? "/snapshot.jpg";
                 _streamUrl = cameraSettings["StreamUrl"] ?? "/stream";
                 
@@ -91,7 +91,7 @@ namespace ParkIRC.Services
             }
         }
 
-        public async Task<string> CaptureImageAsync(string savePath = null)
+        public async Task<string> CaptureImageAsync(string? savePath = null)
         {
             if (!_isInitialized)
             {

@@ -1,23 +1,41 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ParkIRC.Web.Models
+namespace ParkIRC.Models
 {
     public class VehicleExit
     {
+        [Key]
         public int Id { get; set; }
 
         [Required]
-        public int VehicleId { get; set; }
+        [StringLength(20)]
+        public string PlateNumber { get; set; }
 
         [Required]
-        public string OperatorId { get; set; }
+        [StringLength(50)]
+        public string VehicleType { get; set; }
 
         [Required]
         public DateTime ExitTime { get; set; }
 
+        public string? ExitPhotoPath { get; set; }
+
+        public int VehicleId { get; set; }
+
+        public int? ParkingSpaceId { get; set; }
+
         [Required]
-        public decimal Fee { get; set; }
+        [StringLength(100)]
+        public string OperatorId { get; set; }
+
+        public int TransactionId { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Cost { get; set; }
+
+        public TimeSpan Duration { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -25,14 +43,18 @@ namespace ParkIRC.Web.Models
 
         [Required]
         [StringLength(50)]
-        public string Status { get; set; }
+        public string PaymentStatus { get; set; }
 
         public string? Notes { get; set; }
-        public string? ReceiptNumber { get; set; }
-        public string? ImagePath { get; set; }
 
         // Navigation properties
-        public virtual Vehicle Vehicle { get; set; }
-        public virtual ApplicationUser Operator { get; set; }
+        [ForeignKey("VehicleId")]
+        public virtual Vehicle? Vehicle { get; set; }
+
+        [ForeignKey("ParkingSpaceId")]
+        public virtual ParkingSpace? ParkingSpace { get; set; }
+
+        [ForeignKey("TransactionId")]
+        public virtual ParkingTransaction? Transaction { get; set; }
     }
 } 

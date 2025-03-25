@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.SignalR;
 using ParkIRC.Hubs;
 using ParkIRC.Services;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ParkIRC.Controllers.Api
 {
@@ -53,17 +54,17 @@ namespace ParkIRC.Controllers.Api
                 var availableSpaces = await _context.ParkingSpaces.CountAsync(s => !s.IsOccupied);
                 
                 var dailyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date == today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date == today)
                     .Select(t => t.TotalAmount)
                     .SumAsync();
                     
                 var weeklyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date >= weekStart && t.PaymentTime.Date <= today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= weekStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
                     .SumAsync();
                     
                 var monthlyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date >= monthStart && t.PaymentTime.Date <= today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= monthStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
                     .SumAsync();
                 
@@ -185,88 +186,53 @@ namespace ParkIRC.Controllers.Api
                     return BadRequest(new { error = "Vehicle is already parked" });
                 }
 
+                DateTime entryTime = DateTime.Now;
+                if (model.EntryTime.HasValue)
+                {
+                    entryTime = model.EntryTime.Value;
+                }
+
                 if (vehicle == null)
                 {
                     vehicle = new Vehicle
                     {
                         VehicleNumber = model.VehicleNumber,
                         VehicleType = model.VehicleType,
-                        EntryTime = DateTime.Now,
+                        EntryTime = entryTime,
                         IsParked = true
                     };
                     
                     _context.Vehicles.Add(vehicle);
                 }
-                else
+                else 
                 {
-                    vehicle.EntryTime = DateTime.Now;
+                    vehicle.EntryTime = entryTime;
                     vehicle.IsParked = true;
                     vehicle.VehicleType = model.VehicleType;
-                    _context.Vehicles.Update(vehicle);
                 }
 
-                // Find available parking space
-                var parkingSpace = await _context.ParkingSpaces
-                    .FirstOrDefaultAsync(s => !s.IsOccupied);
-                
-                if (parkingSpace == null)
-                {
-                    return BadRequest(new { error = "No available parking spaces" });
-                }
-
-                // Allocate parking space
-                parkingSpace.IsOccupied = true;
-                parkingSpace.CurrentVehicleId = vehicle.Id;
-                _context.ParkingSpaces.Update(parkingSpace);
-
-                // Create parking ticket
-                var ticket = new ParkingTicket
-                {
-                    TicketNumber = $"PK-{DateTime.Now:yyMMddHHmmss}",
-                    BarcodeData = $"PK-{vehicle.VehicleNumber}-{DateTime.Now:yyMMddHHmmss}",
-                    IssueTime = DateTime.Now,
-                    VehicleId = vehicle.Id,
-                    OperatorId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                };
-                
-                _context.ParkingTickets.Add(ticket);
-
-                // Create parking transaction
-                var transaction = new ParkingTransaction
-                {
-                    TransactionNumber = $"TX-{DateTime.Now:yyMMddHHmmss}",
-                    VehicleId = vehicle.Id,
-                    ParkingSpaceId = parkingSpace.Id,
-                    EntryTime = DateTime.Now,
-                    OperatorId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
-                    HourlyRate = parkingSpace.HourlyRate
-                };
-                
-                _context.ParkingTransactions.Add(transaction);
-                
                 await _context.SaveChangesAsync();
 
-                // Notify clients via SignalR
-                await _hubContext.Clients.All.SendAsync("ReceiveParkingUpdate", new { 
-                    type = "entry", 
-                    vehicle = vehicle.VehicleNumber,
-                    space = parkingSpace.SpaceNumber
-                });
+                // Calculate parking duration and fee
+                TimeSpan parkingDuration = DateTime.Now - vehicle.EntryTime;
+                decimal parkingFee = (decimal)Math.Ceiling(parkingDuration.TotalHours) * model.HourlyRate;
 
-                return Ok(new EntryResponse
+                // Create response
+                var response = new EntryResponse
                 {
-                    TicketId = ticket.Id,
-                    TicketNumber = ticket.TicketNumber,
-                    BarcodeData = ticket.BarcodeData,
+                    TicketId = vehicle.Id,
+                    TicketNumber = vehicle.VehicleNumber,
                     VehicleNumber = vehicle.VehicleNumber,
                     EntryTime = vehicle.EntryTime,
-                    ParkingSpace = parkingSpace.SpaceNumber
-                });
+                    ParkingSpace = vehicle.ParkingSpace?.Name ?? "Not Assigned"
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during vehicle entry");
-                return StatusCode(500, new { error = "Error processing vehicle entry" });
+                _logger.LogError(ex, "Error recording vehicle entry");
+                return StatusCode(500, new { error = "Error recording vehicle entry" });
             }
         }
 
@@ -281,95 +247,61 @@ namespace ParkIRC.Controllers.Api
 
             try
             {
-                // Find vehicle by ticket number or license plate
-                Vehicle vehicle;
-                ParkingTransaction transaction;
-                
-                if (!string.IsNullOrEmpty(model.TicketNumber))
-                {
-                    var ticket = await _context.ParkingTickets
-                        .FirstOrDefaultAsync(t => t.TicketNumber == model.TicketNumber);
-                    
-                    if (ticket == null)
-                    {
-                        return NotFound(new { error = "Ticket not found" });
-                    }
-                    
-                    vehicle = await _context.Vehicles.FindAsync(ticket.VehicleId);
-                }
-                else if (!string.IsNullOrEmpty(model.VehicleNumber))
-                {
-                    vehicle = await _context.Vehicles
-                        .FirstOrDefaultAsync(v => v.VehicleNumber == model.VehicleNumber && v.IsParked);
-                }
-                else
-                {
-                    return BadRequest(new { error = "Ticket number or vehicle license plate is required" });
-                }
-                
+                var vehicle = await _context.Vehicles
+                    .Include(v => v.ParkingSpace)
+                    .FirstOrDefaultAsync(v => v.VehicleNumber == model.VehicleNumber);
+
                 if (vehicle == null || !vehicle.IsParked)
                 {
-                    return NotFound(new { error = "Vehicle not found in parking" });
+                    return NotFound(new { error = "Vehicle not found or not currently parked" });
                 }
 
-                // Find the associated transaction
-                transaction = await _context.ParkingTransactions
-                    .Include(t => t.ParkingSpace)
-                    .FirstOrDefaultAsync(t => t.VehicleId == vehicle.Id && t.ExitTime == default);
-                
-                if (transaction == null)
-                {
-                    return NotFound(new { error = "No active parking transaction found for this vehicle" });
-                }
-
-                // Calculate parking duration and fee
                 var exitTime = DateTime.Now;
-                var duration = exitTime - transaction.EntryTime;
-                var hours = Math.Ceiling(duration.TotalHours);
-                var parkingFee = hours * transaction.HourlyRate;
+                TimeSpan parkingDuration = exitTime - vehicle.EntryTime;
+                decimal parkingFee = (decimal)Math.Ceiling(parkingDuration.TotalHours) * model.HourlyRate;
 
-                // Update transaction
-                transaction.ExitTime = exitTime;
-                transaction.Duration = duration;
-                transaction.TotalAmount = parkingFee;
-                transaction.PaymentTime = exitTime;
-                transaction.PaymentMethod = model.PaymentMethod;
-                
-                _context.ParkingTransactions.Update(transaction);
+                // Create transaction record
+                var transaction = new ParkingTransaction
+                {
+                    VehicleId = vehicle.Id,
+                    EntryTime = vehicle.EntryTime,
+                    ExitTime = exitTime,
+                    Duration = parkingDuration,
+                    TotalAmount = parkingFee,
+                    PaymentMethod = model.PaymentMethod,
+                    PaymentTime = exitTime
+                };
 
-                // Update vehicle and parking space
+                _context.ParkingTransactions.Add(transaction);
+
+                // Update vehicle status
                 vehicle.IsParked = false;
-                var parkingSpace = transaction.ParkingSpace;
-                parkingSpace.IsOccupied = false;
-                parkingSpace.CurrentVehicleId = null;
-                
-                _context.Vehicles.Update(vehicle);
-                _context.ParkingSpaces.Update(parkingSpace);
-                
+                if (vehicle.ParkingSpace != null)
+                {
+                    vehicle.ParkingSpace.IsOccupied = false;
+                    vehicle.ParkingSpaceId = null;
+                }
+
                 await _context.SaveChangesAsync();
 
-                // Notify clients via SignalR
-                await _hubContext.Clients.All.SendAsync("ReceiveParkingUpdate", new { 
-                    type = "exit", 
-                    vehicle = vehicle.VehicleNumber,
-                    space = parkingSpace.SpaceNumber
-                });
-
-                return Ok(new ExitResponse
+                // Create response
+                var response = new ExitResponse
                 {
                     TransactionId = transaction.Id,
                     VehicleNumber = vehicle.VehicleNumber,
-                    EntryTime = transaction.EntryTime,
+                    EntryTime = vehicle.EntryTime,
                     ExitTime = exitTime,
-                    Duration = duration,
+                    Duration = parkingDuration,
                     ParkingFee = parkingFee,
                     PaymentMethod = model.PaymentMethod
-                });
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during vehicle exit");
-                return StatusCode(500, new { error = "Error processing vehicle exit" });
+                _logger.LogError(ex, "Error recording vehicle exit");
+                return StatusCode(500, new { error = "Error recording vehicle exit" });
             }
         }
 
@@ -597,7 +529,6 @@ namespace ParkIRC.Controllers.Api
     {
         public int TicketId { get; set; }
         public string TicketNumber { get; set; }
-        public string BarcodeData { get; set; }
         public string VehicleNumber { get; set; }
         public DateTime EntryTime { get; set; }
         public string ParkingSpace { get; set; }
@@ -605,7 +536,6 @@ namespace ParkIRC.Controllers.Api
 
     public class ExitModel
     {
-        public string TicketNumber { get; set; }
         public string VehicleNumber { get; set; }
         public string PaymentMethod { get; set; } = "Cash";
     }

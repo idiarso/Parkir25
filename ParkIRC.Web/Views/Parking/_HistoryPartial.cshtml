@@ -1,0 +1,67 @@
+@model ParkIRC.Web.ViewModels.HistoryViewModel
+
+<div class="table-responsive">
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Transaksi</h5>
+                    <p class="card-text">@Model.TotalTransactions</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Pendapatan</h5>
+                    <p class="card-text">@Model.TotalRevenue.ToString("C")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>No. Transaksi</th>
+                <th>No. Kendaraan</th>
+                <th>Jenis</th>
+                <th>Waktu Masuk</th>
+                <th>Waktu Keluar</th>
+                <th>Durasi</th>
+                <th>Biaya</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var transaction in Model.Transactions)
+            {
+                var duration = transaction.ExitTime.HasValue 
+                    ? transaction.ExitTime.Value - transaction.EntryTime 
+                    : TimeSpan.Zero;
+                
+                <tr>
+                    <td>@transaction.TransactionNumber</td>
+                    <td>@transaction.Vehicle?.VehicleNumber</td>
+                    <td>@transaction.Vehicle?.VehicleType</td>
+                    <td>@transaction.EntryTime.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@(transaction.ExitTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
+                    <td>@(transaction.ExitTime.HasValue ? $"{duration.Hours:D2}:{duration.Minutes:D2}" : "-")</td>
+                    <td>@transaction.TotalAmount.ToString("C")</td>
+                    <td>
+                        <span class="badge @(transaction.IsPaid ? "bg-success" : "bg-warning")">
+                            @(transaction.IsPaid ? "Lunas" : "Belum Lunas")
+                        </span>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (!Model.Transactions.Any())
+{
+    <div class="alert alert-info">
+        Tidak ada data transaksi untuk periode yang dipilih.
+    </div>
+} 

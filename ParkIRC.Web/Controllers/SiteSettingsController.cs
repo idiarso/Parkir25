@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using ParkIRC.Models;
+using ParkIRC.Web.Models;
 using ParkIRC.Data;
 
 namespace ParkIRC.Controllers

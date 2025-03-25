@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace ParkIRC.ViewModels
+namespace ParkIRC.Web.ViewModels
 {
     public class VehicleHistoryPageViewModel
     {

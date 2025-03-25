@@ -13,10 +13,14 @@ using ParkIRC.Services;
 using Microsoft.AspNetCore.Authorization;
 using ParkIRC.Extensions;
 using System.Text.Json;
+using System.IO;
 using System.IO.Compression;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using ParkIRC.ViewModels;
+using ParkIRC.Web.ViewModels;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+using OfficeOpenXml;
 
 namespace ParkIRC.Controllers
 {
@@ -60,19 +64,19 @@ namespace ParkIRC.Controllers
                 var availableSpaces = await _context.ParkingSpaces.CountAsync(s => !s.IsOccupied);
                 
                 var dailyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date == today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date == today)
                     .Select(t => t.TotalAmount)
-                    .SumAsync(t => t);
+                    .SumAsync();
                     
                 var weeklyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date >= weekStart && t.PaymentTime.Date <= today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= weekStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
-                    .SumAsync(t => t);
+                    .SumAsync();
                     
                 var monthlyRevenue = await _context.ParkingTransactions
-                    .Where(t => t.PaymentTime.Date >= monthStart && t.PaymentTime.Date <= today)
+                    .Where(t => t.PaymentTime.HasValue && t.PaymentTime.Value.Date >= monthStart && t.PaymentTime.Value.Date <= today)
                     .Select(t => t.TotalAmount)
-                    .SumAsync(t => t);
+                    .SumAsync();
                 
                 // Get data that requires more complex queries
                 var recentActivity = await GetRecentActivity();
@@ -83,12 +87,19 @@ namespace ParkIRC.Controllers
                 {
                     TotalSpaces = totalSpaces,
                     AvailableSpaces = availableSpaces,
+                    OccupiedSpaces = totalSpaces - availableSpaces,
+                    OccupancyRate = totalSpaces > 0 ? ((double)(totalSpaces - availableSpaces) / totalSpaces) * 100 : 0,
+                    TotalTransactionsToday = await _context.ParkingTransactions
+                        .CountAsync(t => t.EntryTime.Date == today),
                     DailyRevenue = dailyRevenue,
                     WeeklyRevenue = weeklyRevenue,
                     MonthlyRevenue = monthlyRevenue,
                     RecentActivity = recentActivity,
                     HourlyOccupancy = hourlyOccupancy,
-                    VehicleDistribution = vehicleDistribution
+                    VehicleDistribution = vehicleDistribution,
+                    ActiveTransactions = await GetActiveTransactions(),
+                    RecentEntries = await GetRecentEntries(),
+                    RecentExits = await GetRecentExits()
                 };
                 
                 return View(dashboardData);
@@ -99,9 +110,66 @@ namespace ParkIRC.Controllers
                 return View("Error", new ParkIRC.Models.ErrorViewModel 
                 { 
                     Message = "Terjadi kesalahan saat memuat dashboard. Silakan coba lagi nanti.",
-                    RequestId = HttpContext.TraceIdentifier
                 });
             }
+        }
+
+        private async Task<List<DashboardParkingActivity>> GetActiveTransactions()
+        {
+            return await _context.ParkingTransactions
+                .Include(t => t.Vehicle)
+                .Where(t => !t.ExitTime.HasValue)
+                .OrderByDescending(t => t.EntryTime)
+                .Take(10)
+                .Select(t => new DashboardParkingActivity
+                {
+                    VehicleType = t.Vehicle.VehicleType,
+                    LicensePlate = t.Vehicle.VehicleNumber,
+                    Timestamp = t.EntryTime,
+                    ActionType = "Active",
+                    Fee = t.TotalAmount,
+                    ParkingType = t.ParkingSpace.Type
+                })
+                .ToListAsync();
+        }
+
+        private async Task<List<DashboardParkingActivity>> GetRecentEntries()
+        {
+            return await _context.ParkingTransactions
+                .Include(t => t.Vehicle)
+                .Include(t => t.ParkingSpace)
+                .OrderByDescending(t => t.EntryTime)
+                .Take(5)
+                .Select(t => new DashboardParkingActivity
+                {
+                    VehicleType = t.Vehicle.VehicleType,
+                    LicensePlate = t.Vehicle.VehicleNumber,
+                    Timestamp = t.EntryTime,
+                    ActionType = "Entry",
+                    Fee = 0,
+                    ParkingType = t.ParkingSpace.Type
+                })
+                .ToListAsync();
+        }
+
+        private async Task<List<DashboardParkingActivity>> GetRecentExits()
+        {
+            return await _context.ParkingTransactions
+                .Include(t => t.Vehicle)
+                .Include(t => t.ParkingSpace)
+                .Where(t => t.ExitTime.HasValue)
+                .OrderByDescending(t => t.ExitTime)
+                .Take(5)
+                .Select(t => new DashboardParkingActivity
+                {
+                    VehicleType = t.Vehicle.VehicleType,
+                    LicensePlate = t.Vehicle.VehicleNumber,
+                    Timestamp = t.ExitTime.Value,
+                    ActionType = "Exit",
+                    Fee = t.TotalAmount,
+                    ParkingType = t.ParkingSpace.Type
+                })
+                .ToListAsync();
         }
 
         private async Task<List<ParkingActivity>> GetRecentActivity()
@@ -133,8 +201,8 @@ namespace ParkIRC.Controllers
             
             // Then get the hourly data with the total spaces value
             var hourlyData = await _context.ParkingTransactions
-                .Where(t => t.EntryTime.Date == today)
-                .GroupBy(t => t.EntryTime.Hour)
+                .Where(t => t.EntryTime.HasValue && t.EntryTime.Value.Date == today)
+                .GroupBy(t => t.EntryTime.Value.Hour)
                 .Select(g => new OccupancyData
                 {
                     Hour = $"{g.Key:D2}:00",
@@ -400,8 +468,8 @@ namespace ParkIRC.Controllers
         {
             var today = DateTime.Today;
             var hourlyData = await _context.ParkingTransactions
-                .Where(t => t.EntryTime.Date == today)
-                .GroupBy(t => t.EntryTime.Hour)
+                .Where(t => t.EntryTime.HasValue && t.EntryTime.Value.Date == today)
+                .GroupBy(t => t.EntryTime.Value.Hour)
                 .Select(g => new
                 {
                     Hour = g.Key,
@@ -583,11 +651,13 @@ namespace ParkIRC.Controllers
                 .FirstOrDefaultAsync();
         }
 
-        private static decimal CalculateParkingFee(DateTime entryTime, DateTime exitTime, decimal hourlyRate)
+        private decimal CalculateParkingFee(TimeSpan? duration, decimal hourlyRate)
         {
-            var duration = exitTime - entryTime;
-            var hours = (decimal)Math.Ceiling(duration.TotalHours);
-            return hours * hourlyRate;
+            if (duration == null)
+                return 0;
+
+            var totalHours = Math.Ceiling(duration.Value.TotalHours);
+            return totalHours * hourlyRate;
         }
 
         private static string GenerateTransactionNumber()
@@ -671,740 +741,33 @@ namespace ParkIRC.Controllers
 
         public async Task<IActionResult> Index(DateTime? startDate = null, DateTime? endDate = null)
         {
-            var query = _context.ParkingSpaces.Include(p => p.CurrentVehicle).AsQueryable();
-
-            if (startDate.HasValue)
-            {
-                query = query.Where(p => p.CurrentVehicle != null && p.CurrentVehicle.EntryTime >= startDate.Value);
-            }
-
-            if (endDate.HasValue)
-            {
-                query = query.Where(p => p.CurrentVehicle != null && p.CurrentVehicle.EntryTime <= endDate.Value);
-            }
-
-            var spaces = await query.ToListAsync();
-            return View(spaces);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CheckOut(int id)
-        {
-            var vehicle = await _context.Vehicles
-                .Include(v => v.ParkingSpace)
-                .FirstOrDefaultAsync(v => v.Id == id);
-
-            if (vehicle == null)
-            {
-                return NotFound();
-            }
-
-            var transaction = await _parkingService.ProcessCheckout(vehicle);
-            return RedirectToAction(nameof(Index));
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> CheckVehicleAvailability(string vehicleNumber)
-        {
             try
             {
-                if (string.IsNullOrWhiteSpace(vehicleNumber))
-                {
-                    return BadRequest(new { error = "Nomor kendaraan tidak valid" });
-                }
-
-                vehicleNumber = vehicleNumber.ToUpper().Trim();
-                
-                var existingVehicle = await _context.Vehicles
-                    .FirstOrDefaultAsync(v => v.VehicleNumber == vehicleNumber && v.IsParked);
-                    
-                return Ok(new { 
-                    isAvailable = existingVehicle == null,
-                    message = existingVehicle != null 
-                        ? "Kendaraan sudah terparkir di fasilitas" 
-                        : "Nomor kendaraan tersedia untuk digunakan"
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking vehicle availability for {VehicleNumber}", vehicleNumber);
-                return StatusCode(500, new { error = "Terjadi kesalahan saat memeriksa ketersediaan kendaraan." });
-            }
-        }
-
-        public async Task<IActionResult> Transaction()
-        {
-            var currentShift = await GetCurrentShiftAsync();
-            ViewBag.CurrentShift = currentShift;
-            
-            var parkingRates = await _context.ParkingRates
-                .Where(r => r.IsActive)
-                .OrderBy(r => r.VehicleType)
-                .ToListAsync();
-            ViewBag.ParkingRates = parkingRates;
-
-            return View();
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ProcessTransaction([FromBody] TransactionRequest request)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                var vehicle = await _context.Vehicles
-                    .Include(v => v.ParkingSpace)
-                    .FirstOrDefaultAsync(v => v.VehicleNumber == request.VehicleNumber && v.IsParked);
-
-                if (vehicle == null)
-                {
-                    return NotFound("Vehicle not found or not currently parked");
-                }
-
-                var parkingSpace = vehicle.ParkingSpace;
-                if (parkingSpace == null)
-                {
-                    return NotFound("Parking space not found");
-                }
-
-                var rate = await _context.ParkingRates
-                    .FirstOrDefaultAsync(r => r.VehicleType == vehicle.VehicleType && r.IsActive);
-
-                if (rate == null)
-                {
-                    return NotFound("Parking rate not found for this vehicle type");
-                }
-
-                // Calculate duration and amount
-                var duration = DateTime.Now - vehicle.EntryTime;
-                var amount = CalculateParkingFee(vehicle.EntryTime, DateTime.Now, rate.HourlyRate);
-
-                // Create transaction
-                var transaction = new ParkingTransaction
-                {
-                    VehicleId = vehicle.Id,
-                    ParkingSpaceId = parkingSpace.Id,
-                    TransactionNumber = GenerateTransactionNumber(),
-                    EntryTime = vehicle.EntryTime,
-                    ExitTime = DateTime.Now,
-                    HourlyRate = rate.HourlyRate,
-                    Amount = amount,
-                    TotalAmount = amount,
-                    PaymentStatus = "Completed",
-                    PaymentMethod = request.PaymentMethod,
-                    PaymentTime = DateTime.Now,
-                    Status = "Completed"
-                };
-
-                _context.ParkingTransactions.Add(transaction);
-
-                // Update vehicle and parking space
-                vehicle.ExitTime = DateTime.Now;
-                vehicle.IsParked = false;
-                parkingSpace.IsOccupied = false;
-                parkingSpace.CurrentVehicle = null;
-
-                await _context.SaveChangesAsync();
-
-                // Notify clients of the update
-                await _hubContext.Clients.All.SendAsync("UpdateParkingStatus");
-
-                return Json(new
-                {
-                    success = true,
-                    transactionNumber = transaction.TransactionNumber,
-                    vehicleNumber = vehicle.VehicleNumber,
-                    entryTime = vehicle.EntryTime,
-                    exitTime = transaction.ExitTime,
-                    duration = duration.ToString(@"hh\:mm"),
-                    amount = transaction.TotalAmount
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing parking transaction");
-                return StatusCode(500, "An error occurred while processing the transaction");
-            }
-        }
-
-        private async Task<Shift> GetCurrentShiftAsync()
-        {
-            var now = DateTime.Now;
-            // First get all active shifts
-            var activeShifts = await _context.Shifts
-                .Where(s => s.IsActive)
-                .ToListAsync();
-            
-            // Use IsTimeInShift method to find current shift
-            var currentShift = activeShifts
-                .FirstOrDefault(s => s.IsTimeInShift(now));
-        
-            if (currentShift == null)
-                throw new InvalidOperationException("No active shift found");
-        
-            return currentShift;
-        }
-
-        private async Task<DashboardViewModel> GetDashboardData()
-        {
-            var today = DateTime.Today;
-            var weekStart = today.AddDays(-(int)today.DayOfWeek);
-            var monthStart = new DateTime(today.Year, today.Month, 1);
-
-            var totalSpaces = await _context.ParkingSpaces.CountAsync();
-            var availableSpaces = await _context.ParkingSpaces.CountAsync(s => !s.IsOccupied);
-            var dailyRevenue = await _context.ParkingTransactions
-                .Where(t => t.PaymentTime.Date == today)
-                .SumDecimalAsync(t => t.TotalAmount);
-            var weeklyRevenue = await _context.ParkingTransactions
-                .Where(t => t.PaymentTime.Date >= weekStart && t.PaymentTime.Date <= today)
-                .SumDecimalAsync(t => t.TotalAmount);
-            var monthlyRevenue = await _context.ParkingTransactions
-                .Where(t => t.PaymentTime.Date >= monthStart && t.PaymentTime.Date <= today)
-                .SumDecimalAsync(t => t.TotalAmount);
-
-            return new DashboardViewModel
-            {
-                TotalSpaces = totalSpaces,
-                AvailableSpaces = availableSpaces,
-                DailyRevenue = dailyRevenue,
-                WeeklyRevenue = weeklyRevenue,
-                MonthlyRevenue = monthlyRevenue,
-                RecentActivity = await GetRecentActivity(),
-                HourlyOccupancy = await GetHourlyOccupancyData(),
-                VehicleDistribution = await GetVehicleTypeDistribution()
-            };
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> BackupData(string backupPeriod, DateTime? startDate, DateTime? endDate, bool includeImages = true)
-        {
-            try
-            {
-                var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                Directory.CreateDirectory(tempPath);
-                var backupPath = Path.Combine(tempPath, "backup");
-                Directory.CreateDirectory(backupPath);
-
-                // Determine date range
-                DateTime rangeStart, rangeEnd;
-                switch (backupPeriod)
-                {
-                    case "daily":
-                        rangeStart = DateTime.Today;
-                        rangeEnd = DateTime.Today.AddDays(1).AddSeconds(-1);
-                        break;
-                    case "monthly":
-                        rangeStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-                        rangeEnd = rangeStart.AddMonths(1).AddSeconds(-1);
-                        break;
-                    case "custom":
-                        if (!startDate.HasValue || !endDate.HasValue)
-                            return BadRequest("Invalid date range");
-                        rangeStart = startDate.Value.Date;
-                        rangeEnd = endDate.Value.Date.AddDays(1).AddSeconds(-1);
-                        break;
-                    default:
-                        return BadRequest("Invalid backup period");
-                }
-
-                // Get data within date range
-                var vehicles = await _context.Vehicles
-                    .Where(v => v.EntryTime >= rangeStart && v.EntryTime <= rangeEnd)
-                    .ToListAsync();
+                startDate = startDate.GetValueOrDefault(DateTime.Today);
+                endDate = endDate ?? DateTime.Today.AddDays(1).AddSeconds(-1);
 
                 var transactions = await _context.ParkingTransactions
-                    .Where(t => t.EntryTime >= rangeStart && t.EntryTime <= rangeEnd)
+                    .Include(t => t.Vehicle)
+                    .Include(t => t.ParkingSpace)
+                    .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                    .OrderByDescending(t => t.EntryTime)
                     .ToListAsync();
 
-                var tickets = await _context.ParkingTickets
-                    .Where(t => t.IssueTime >= rangeStart && t.IssueTime <= rangeEnd)
-                    .ToListAsync();
-
-                // Create backup data object
-                var backupData = new
+                var model = new HistoryViewModel
                 {
-                    BackupDate = DateTime.Now,
-                    DateRange = new { Start = rangeStart, End = rangeEnd },
-                    Vehicles = vehicles,
+                    StartDate = startDate.Value,
+                    EndDate = endDate.Value,
                     Transactions = transactions,
-                    Tickets = tickets
+                    TotalRevenue = transactions.Sum(t => t.TotalAmount),
+                    TotalTransactions = transactions.Count
                 };
 
-                // Save data to JSON
-                var jsonPath = Path.Combine(backupPath, "data.json");
-                await System.IO.File.WriteAllTextAsync(jsonPath, JsonSerializer.Serialize(backupData, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                }));
-
-                // Copy images if requested
-                if (includeImages)
-                {
-                    var imagesPath = Path.Combine(backupPath, "images");
-                    Directory.CreateDirectory(imagesPath);
-
-                    // Copy entry photos
-                    foreach (var vehicle in vehicles.Where(v => !string.IsNullOrEmpty(v.EntryPhotoPath)))
-                    {
-                        var sourcePath = Path.Combine(_webHostEnvironment.WebRootPath, vehicle.EntryPhotoPath.TrimStart('/'));
-                        if (System.IO.File.Exists(sourcePath))
-                        {
-                            var destPath = Path.Combine(imagesPath, Path.GetFileName(vehicle.EntryPhotoPath));
-                            System.IO.File.Copy(sourcePath, destPath, true);
-                        }
-                    }
-
-                    // Copy exit photos
-                    foreach (var vehicle in vehicles.Where(v => !string.IsNullOrEmpty(v.ExitPhotoPath)))
-                    {
-                        var sourcePath = Path.Combine(_webHostEnvironment.WebRootPath, vehicle.ExitPhotoPath.TrimStart('/'));
-                        if (System.IO.File.Exists(sourcePath))
-                        {
-                            var destPath = Path.Combine(imagesPath, Path.GetFileName(vehicle.ExitPhotoPath));
-                            System.IO.File.Copy(sourcePath, destPath, true);
-                        }
-                    }
-
-                    // Copy barcode images
-                    foreach (var ticket in tickets.Where(t => !string.IsNullOrEmpty(t.BarcodeImagePath)))
-                    {
-                        var sourcePath = Path.Combine(_webHostEnvironment.WebRootPath, ticket.BarcodeImagePath.TrimStart('/'));
-                        if (System.IO.File.Exists(sourcePath))
-                        {
-                            var destPath = Path.Combine(imagesPath, Path.GetFileName(ticket.BarcodeImagePath));
-                            System.IO.File.Copy(sourcePath, destPath, true);
-                        }
-                    }
-                }
-
-                // Create ZIP file
-                var zipPath = Path.Combine(tempPath, $"backup_{DateTime.Now:yyyyMMdd_HHmmss}.zip");
-                ZipFile.CreateFromDirectory(backupPath, zipPath);
-
-                // Read ZIP file
-                var zipBytes = await System.IO.File.ReadAllBytesAsync(zipPath);
-
-                // Cleanup
-                Directory.Delete(tempPath, true);
-
-                return File(zipBytes, "application/zip", Path.GetFileName(zipPath));
+                return View(model);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during backup");
-                return StatusCode(500, new { success = false, message = "Gagal melakukan backup: " + ex.Message });
-            }
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RestoreData(IFormFile backupFile, bool overwriteExisting = false)
-        {
-            try
-            {
-                if (backupFile == null || backupFile.Length == 0)
-                {
-                    return BadRequest(new { success = false, message = "File backup tidak valid" });
-                }
-
-                if (!backupFile.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    return BadRequest(new { success = false, message = "File harus berformat ZIP" });
-                }
-
-                var tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-                Directory.CreateDirectory(tempPath);
-
-                try
-                {
-                    using (var stream = new FileStream(Path.Combine(tempPath, backupFile.FileName), FileMode.Create))
-                    {
-                        await backupFile.CopyToAsync(stream);
-                    }
-
-                    System.IO.Compression.ZipFile.ExtractToDirectory(
-                        Path.Combine(tempPath, backupFile.FileName),
-                        tempPath,
-                        overwriteExisting);
-
-                    var jsonContent = await System.IO.File.ReadAllTextAsync(Path.Combine(tempPath, "data.json"));
-                    var backupData = JsonSerializer.Deserialize<BackupData>(jsonContent);
-
-                    if (backupData == null)
-                    {
-                        throw new Exception("Data backup tidak valid");
-                    }
-
-                    using var transaction = await _context.Database.BeginTransactionAsync();
-                    try
-                    {
-                        // Restore vehicles
-                        foreach (var vehicle in backupData.Vehicles)
-                        {
-                            var existingVehicle = await _context.Vehicles
-                                .FirstOrDefaultAsync(v => v.VehicleNumber == vehicle.VehicleNumber);
-
-                            if (existingVehicle == null)
-                            {
-                                await _context.Vehicles.AddAsync(vehicle);
-                            }
-                            else if (overwriteExisting)
-                            {
-                                _context.Entry(existingVehicle).CurrentValues.SetValues(vehicle);
-                            }
-                        }
-
-                        // Restore transactions
-                        foreach (var parkingTransaction in backupData.Transactions)
-                        {
-                            var existingTransaction = await _context.ParkingTransactions
-                                .FirstOrDefaultAsync(t => t.TransactionNumber == parkingTransaction.TransactionNumber);
-
-                            if (existingTransaction == null)
-                            {
-                                await _context.ParkingTransactions.AddAsync(parkingTransaction);
-                            }
-                            else if (overwriteExisting)
-                            {
-                                _context.Entry(existingTransaction).CurrentValues.SetValues(parkingTransaction);
-                            }
-                        }
-
-                        // Restore tickets with correct property name
-                        foreach (var ticket in backupData.Tickets)
-                        {
-                            var existingTicket = await _context.ParkingTickets
-                                .FirstOrDefaultAsync(t => t.TicketNumber == ticket.TicketNumber);
-
-                            if (existingTicket == null)
-                            {
-                                await _context.ParkingTickets.AddAsync(ticket);
-                            }
-                            else if (overwriteExisting)
-                            {
-                                _context.Entry(existingTicket).CurrentValues.SetValues(ticket);
-                            }
-                        }
-
-                        await _context.SaveChangesAsync();
-                        await transaction.CommitAsync();
-
-                        return Json(new { success = true, message = "Data berhasil dipulihkan" });
-                    }
-                    catch (Exception ex)
-                    {
-                        await transaction.RollbackAsync();
-                        throw new Exception($"Gagal memulihkan data: {ex.Message}");
-                    }
-                }
-                finally
-                {
-                    // Cleanup temporary files
-                    if (Directory.Exists(tempPath))
-                    {
-                        Directory.Delete(tempPath, true);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error restoring data");
-                return StatusCode(500, new { success = false, message = $"Gagal memulihkan data: {ex.Message}" });
-            }
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ClearData(string[] clearOptions, string clearPeriod, DateTime? clearBeforeDate)
-        {
-            try
-            {
-                if (clearOptions == null || clearOptions.Length == 0)
-                    return BadRequest(new { success = false, message = "Pilih minimal satu jenis data yang akan dihapus" });
-
-                DateTime cutoffDate;
-                switch (clearPeriod)
-                {
-                    case "all":
-                        cutoffDate = DateTime.MaxValue;
-                        break;
-                    case "older_than_month":
-                        cutoffDate = DateTime.Today.AddMonths(-1);
-                        break;
-                    case "older_than_3months":
-                        cutoffDate = DateTime.Today.AddMonths(-3);
-                        break;
-                    case "older_than_6months":
-                        cutoffDate = DateTime.Today.AddMonths(-6);
-                        break;
-                    case "older_than_year":
-                        cutoffDate = DateTime.Today.AddYears(-1);
-                        break;
-                    case "custom":
-                        if (!clearBeforeDate.HasValue)
-                            return BadRequest(new { success = false, message = "Tanggal harus diisi untuk periode kustom" });
-                        cutoffDate = clearBeforeDate.Value;
-                        break;
-                    default:
-                        return BadRequest(new { success = false, message = "Periode tidak valid" });
-                }
-
-                using var transaction = await _context.Database.BeginTransactionAsync();
-                try
-                {
-                    int deletedTransactions = 0;
-                    int deletedVehicles = 0;
-                    int deletedTickets = 0;
-                    int deletedImages = 0;
-
-                    // Delete transactions
-                    if (clearOptions.Contains("transactions"))
-                    {
-                        var transactions = await _context.ParkingTransactions
-                            .Where(t => clearPeriod == "all" || t.EntryTime < cutoffDate)
-                            .ToListAsync();
-                        _context.ParkingTransactions.RemoveRange(transactions);
-                        deletedTransactions = transactions.Count;
-                    }
-
-                    // Delete vehicles
-                    if (clearOptions.Contains("vehicles"))
-                    {
-                        var vehicles = await _context.Vehicles
-                            .Where(v => clearPeriod == "all" || v.EntryTime < cutoffDate)
-                            .ToListAsync();
-                        _context.Vehicles.RemoveRange(vehicles);
-                        deletedVehicles = vehicles.Count;
-                    }
-
-                    // Delete tickets
-                    if (clearOptions.Contains("tickets"))
-                    {
-                        var tickets = await _context.ParkingTickets
-                            .Where(t => clearPeriod == "all" || t.IssueTime < cutoffDate)
-                            .ToListAsync();
-                        _context.ParkingTickets.RemoveRange(tickets);
-                        deletedTickets = tickets.Count;
-                    }
-
-                    // Delete images
-                    if (clearOptions.Contains("images"))
-                    {
-                        var imagesToDelete = new List<string>();
-
-                        // Get entry photos
-                        if (clearOptions.Contains("vehicles"))
-                        {
-                            var vehicleImages = await _context.Vehicles
-                                .Where(v => clearPeriod == "all" || v.EntryTime < cutoffDate)
-                                .Select(v => new { v.EntryPhotoPath, v.ExitPhotoPath })
-                                .ToListAsync();
-
-                            imagesToDelete.AddRange(
-                                vehicleImages
-                                    .Where(v => !string.IsNullOrEmpty(v.EntryPhotoPath))
-                                    .Select(v => v.EntryPhotoPath!)
-                            );
-                            imagesToDelete.AddRange(
-                                vehicleImages
-                                    .Where(v => !string.IsNullOrEmpty(v.ExitPhotoPath))
-                                    .Select(v => v.ExitPhotoPath!)
-                            );
-                        }
-
-                        // Get ticket barcodes
-                        if (clearOptions.Contains("tickets"))
-                        {
-                            var ticketImages = await _context.ParkingTickets
-                                .Where(t => clearPeriod == "all" || t.IssueTime < cutoffDate)
-                                .Select(t => t.BarcodeImagePath)
-                                .Where(path => !string.IsNullOrEmpty(path))
-                                .ToListAsync();
-
-                            imagesToDelete.AddRange(ticketImages!);
-                        }
-
-                        // Delete physical image files
-                        foreach (var imagePath in imagesToDelete)
-                        {
-                            var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, imagePath.TrimStart('/'));
-                            if (System.IO.File.Exists(fullPath))
-                            {
-                                System.IO.File.Delete(fullPath);
-                                deletedImages++;
-                            }
-                        }
-                    }
-
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    // Build success message
-                    var deletedItems = new List<string>();
-                    if (deletedTransactions > 0) deletedItems.Add($"{deletedTransactions} transaksi");
-                    if (deletedVehicles > 0) deletedItems.Add($"{deletedVehicles} data kendaraan");
-                    if (deletedTickets > 0) deletedItems.Add($"{deletedTickets} tiket");
-                    if (deletedImages > 0) deletedItems.Add($"{deletedImages} foto");
-
-                    var message = deletedItems.Count > 0
-                        ? $"Berhasil menghapus {string.Join(", ", deletedItems)}"
-                        : "Tidak ada data yang dihapus";
-
-                    return Json(new { success = true, message = message });
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    throw new Exception("Gagal menghapus data: " + ex.Message);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error clearing data");
-                return StatusCode(500, new { success = false, message = "Gagal menghapus data: " + ex.Message });
-            }
-        }
-
-        [Authorize]
-        public async Task<IActionResult> LiveDashboard(int? pageNumber)
-        {
-            try
-            {
-                _logger.LogInformation("Loading LiveDashboard...");
-                var today = DateTime.Today;
-                
-                _logger.LogDebug("Querying total parking spaces...");
-                var totalSpaces = await _context.ParkingSpaces.CountAsync();
-                
-                _logger.LogDebug("Querying available spaces...");
-                var availableSpaces = await _context.ParkingSpaces.CountAsync(x => !x.IsOccupied);
-                
-                _logger.LogDebug("Querying occupied spaces...");
-                var occupiedSpaces = await _context.ParkingSpaces.CountAsync(x => x.IsOccupied);
-                
-                _logger.LogDebug("Calculating today's revenue...");
-                var todayTransactions = await _context.ParkingTransactions
-                    .Where(x => x.EntryTime.Date == today)
-                    .Select(x => x.TotalAmount)
-                    .ToListAsync();
-                var todayRevenue = todayTransactions.Sum();
-                
-                _logger.LogDebug("Getting vehicle distribution...");
-                var vehicleDistribution = await _context.Vehicles
-                    .Where(x => x.IsParked)
-                    .GroupBy(x => x.VehicleType)
-                    .Select(g => new VehicleDistributionItem 
-                    { 
-                        VehicleType = g.Key ?? "Unknown",
-                        Count = g.Count() 
-                    })
-                    .ToListAsync();
-                
-                _logger.LogDebug("Getting recent activities with pagination...");
-                int pageSize = 10;
-                
-                // Modified query to avoid SQL joins and handle missing columns
-                var allTransactions = await _context.ParkingTransactions
-                    .OrderByDescending(p => p.EntryTime)
-                    .Take(pageSize * 3) // Get a bit more than we need for pagination
-                    .ToListAsync();
-                
-                var vehicleIds = allTransactions.Select(t => t.VehicleId).Distinct().ToList();
-                
-                // Load vehicles separately to avoid SQL join issues
-                var vehicles = await _context.Vehicles
-                    .Where(v => vehicleIds.Contains(v.Id))
-                    .Select(v => new { 
-                        v.Id, 
-                        v.VehicleNumber,
-                        v.VehicleType,
-                        v.DriverName,
-                        v.PhoneNumber,
-                        v.EntryTime,
-                        v.ExitTime,
-                        v.IsParked,
-                        v.EntryPhotoPath,
-                        v.ExitPhotoPath,
-                        v.BarcodeImagePath,
-                        v.ParkingSpaceId,
-                        v.ShiftId
-                    })
-                    .ToListAsync();
-                
-                // Associate vehicles with transactions in memory
-                var vehicleDict = vehicles.ToDictionary(v => v.Id);
-                foreach (var transaction in allTransactions)
-                {
-                    if (vehicleDict.TryGetValue(transaction.VehicleId, out var vehicleInfo))
-                    {
-                        transaction.Vehicle = new Vehicle
-                        {
-                            Id = vehicleInfo.Id,
-                            VehicleNumber = vehicleInfo.VehicleNumber,
-                            VehicleType = vehicleInfo.VehicleType,
-                            DriverName = vehicleInfo.DriverName,
-                            PhoneNumber = vehicleInfo.PhoneNumber,
-                            EntryTime = vehicleInfo.EntryTime,
-                            ExitTime = vehicleInfo.ExitTime,
-                            IsParked = vehicleInfo.IsParked,
-                            EntryPhotoPath = vehicleInfo.EntryPhotoPath,
-                            ExitPhotoPath = vehicleInfo.ExitPhotoPath,
-                            BarcodeImagePath = vehicleInfo.BarcodeImagePath,
-                            ParkingSpaceId = vehicleInfo.ParkingSpaceId,
-                            ShiftId = vehicleInfo.ShiftId
-                        };
-                    }
-                }
-
-                // Manual pagination
-                var items = allTransactions
-                    .Skip(((pageNumber ?? 1) - 1) * pageSize)
-                    .Take(pageSize)
-                    .ToList();
-                
-                var count = await _context.ParkingTransactions.CountAsync();
-                var recentActivities = new PaginatedList<ParkingTransaction>(
-                    items, 
-                    count, 
-                    pageNumber ?? 1, 
-                    pageSize);
-
-                var viewModel = new LiveDashboardViewModel
-                {
-                    TotalSpaces = totalSpaces,
-                    AvailableSpaces = availableSpaces,
-                    OccupiedSpaces = occupiedSpaces,
-                    TodayRevenue = todayRevenue,
-                    VehicleDistribution = vehicleDistribution,
-                    RecentActivities = recentActivities,
-                    CurrentPage = pageNumber ?? 1,
-                    PageSize = pageSize,
-                    TotalPages = recentActivities.TotalPages
-                };
-
-                _logger.LogInformation("LiveDashboard loaded successfully");
-                return View(viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error loading live dashboard: {Message}", ex.Message);
-                if (ex is DbUpdateException dbEx)
-                {
-                    _logger.LogError("Database error details: {Details}", dbEx.InnerException?.Message);
-                }
-                return View("Error", new ErrorViewModel 
-                { 
-                    Message = "Terjadi kesalahan saat memuat dashboard. Silakan coba lagi nanti.",
-                    RequestId = HttpContext.TraceIdentifier,
-                    Exception = ex
-                });
+                _logger.LogError(ex, "Error retrieving parking history");
+                return View(new HistoryViewModel());
             }
         }
 
@@ -1430,7 +793,7 @@ namespace ParkIRC.Controllers
 
                 var transaction = await _parkingService.ProcessCheckout(vehicle);
                 transaction.PaymentMethod = model.PaymentMethod;
-                transaction.PaymentAmount = model.PaymentAmount ?? transaction.TotalAmount;
+                transaction.PaymentAmount = model.PaymentAmount > 0 ? model.PaymentAmount : transaction.TotalAmount;
                 transaction.TransactionNumber = model.TransactionNumber ?? GenerateTransactionNumber();
 
                 await _context.SaveChangesAsync();
@@ -1477,7 +840,7 @@ namespace ParkIRC.Controllers
                 
                 Waktu Masuk: {data.entryTime:dd/MM/yyyy HH:mm}
                 Waktu Keluar: {data.exitTime:dd/MM/yyyy HH:mm}
-                Durasi: {Math.Floor(data.duration)} jam {Math.Round((data.duration % 1) * 60)} menit
+                Durasi: {((TimeSpan)data.duration).TotalHours:F0} jam {((TimeSpan)data.duration).TotalMinutes % 60:F0} menit
                 
                 Total Biaya: Rp {data.amount:N0}
                 Metode Bayar: {data.paymentMethod}
@@ -1488,59 +851,48 @@ namespace ParkIRC.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetVehicleHistory(HistoryViewModel model)
+        public async Task<IActionResult> GetVehicleHistory(string vehicleNumber)
         {
             try
             {
-                var query = _context.ParkingTransactions
+                var transactions = await _context.ParkingTransactions
                     .Include(t => t.Vehicle)
                     .Include(t => t.ParkingSpace)
-                    .AsQueryable();
-
-                if (model.VehicleNumber != null)
-                {
-                    query = query.Where(t => t.Vehicle.VehicleNumber.Contains(model.VehicleNumber));
-                }
-
-                if (model.StartDate.HasValue)
-                {
-                    query = query.Where(t => t.EntryTime >= model.StartDate.Value);
-                }
-
-                if (model.EndDate.HasValue)
-                {
-                    query = query.Where(t => t.EntryTime <= model.EndDate.Value);
-                }
-
-                var totalRecords = await query.CountAsync();
-
-                var transactions = await query
+                    .Where(t => t.Vehicle.VehicleNumber == vehicleNumber)
                     .OrderByDescending(t => t.EntryTime)
-                    .Skip((model.Page - 1) * model.PageSize)
-                    .Take(model.PageSize)
-                    .Select(t => new {
-                        t.TransactionNumber,
-                        t.Vehicle.VehicleNumber,
-                        t.Vehicle.VehicleType,
-                        t.EntryTime,
-                        t.ExitTime,
-                        Duration = t.ExitTime - t.EntryTime,
-                        t.TotalAmount,
-                        t.PaymentMethod
-                    })
                     .ToListAsync();
 
-                return Json(new
+                return PartialView("_HistoryPartial", new HistoryViewModel
                 {
-                    data = transactions,
-                    totalRecords,
-                    totalPages = Math.Ceiling(totalRecords / (double)model.PageSize)
+                    Transactions = transactions.Select(t => new TransactionHistoryItem
+                    {
+                        Id = t.Id,
+                        TransactionNumber = t.TransactionNumber,
+                        TicketNumber = t.TicketNumber,
+                        PlateNumber = t.Vehicle?.VehicleNumber ?? string.Empty,
+                        VehicleType = t.Vehicle?.VehicleType ?? string.Empty,
+                        EntryTime = t.EntryTime,
+                        ExitTime = t.ExitTime,
+                        Duration = t.Duration,
+                        Amount = t.TotalAmount,
+                        PaymentStatus = t.PaymentStatus,
+                        PaymentMethod = t.PaymentMethod,
+                        PaymentTime = t.PaymentTime,
+                        EntryGate = t.EntryPoint,
+                        ExitGate = t.ExitPoint,
+                        EntryOperator = t.OperatorId,
+                        ExitOperator = t.ExitOperatorId,
+                        Status = t.Status,
+                        IsPaid = t.PaymentStatus == "Paid"
+                    }).ToList(),
+                    TotalRevenue = transactions.Sum(t => t.TotalAmount),
+                    TotalTransactions = transactions.Count
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting vehicle history");
-                return Json(new { error = "Terjadi kesalahan saat mengambil riwayat" });
+                _logger.LogError(ex, "Error retrieving vehicle history");
+                return PartialView("_HistoryPartial", new HistoryViewModel());
             }
         }
 
@@ -1553,9 +905,9 @@ namespace ParkIRC.Controllers
                 var reportFilter = new ReportFilter
                 {
                     Type = model.ReportType,
-                    Date = model.ReportDate ?? DateTime.UtcNow,
-                    StartDate = model.StartDate ?? DateTime.UtcNow,
-                    EndDate = model.EndDate ?? DateTime.UtcNow
+                    Date = model.StartDate ?? DateTime.Today,
+                    StartDate = model.StartDate,
+                    EndDate = model.EndDate
                 };
 
                 var transactions = await GetReportData(reportFilter);
@@ -1626,13 +978,13 @@ namespace ParkIRC.Controllers
             switch (filter.Type)
             {
                 case "Daily":
-                    return filter.Date.ToString("dd MMMM yyyy");
+                    return filter.Date.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
                 case "Weekly":
                     var weekStart = filter.Date.Date.AddDays(-(int)filter.Date.DayOfWeek);
                     var weekEnd = weekStart.AddDays(6);
                     return $"{weekStart:dd MMMM yyyy} - {weekEnd:dd MMMM yyyy}";
                 case "Monthly":
-                    return filter.Date.ToString("MMMM yyyy");
+                    return filter.Date.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
                 case "Custom":
                     return $"{filter.StartDate:dd MMMM yyyy} - {filter.EndDate:dd MMMM yyyy}";
                 default:
@@ -1681,7 +1033,7 @@ namespace ParkIRC.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetRecentEntries()
+        public async Task<IActionResult> GetRecentEntriesJson()
         {
             try
             {
@@ -1691,7 +1043,7 @@ namespace ParkIRC.Controllers
                     .Take(5)
                     .Select(v => new
                     {
-                        timestamp = v.EntryTime.ToString("dd/MM/yyyy HH:mm"),
+                        timestamp = v.EntryTime.ToString("dd/MM/yyyy HH:mm:ss"),
                         vehicleNumber = v.VehicleNumber,
                         vehicleType = v.VehicleType
                     })
@@ -1707,17 +1059,17 @@ namespace ParkIRC.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetRecentExits()
+        public async Task<IActionResult> GetRecentExitsJson()
         {
             try
             {
                 var recentExits = await _context.ParkingTransactions
-                    .Where(t => t.ExitTime != default(DateTime))
+                    .Where(t => t.ExitTime.HasValue)
                     .OrderByDescending(t => t.ExitTime)
                     .Take(5)
                     .Select(t => new
                     {
-                        exitTime = t.ExitTime.ToString("dd/MM/yyyy HH:mm"),
+                        exitTime = t.ExitTime.Value.ToString("dd/MM/yyyy HH:mm:ss"),
                         vehicleNumber = t.Vehicle.VehicleNumber,
                         duration = CalculateDuration(t.EntryTime, t.ExitTime),
                         totalAmount = t.TotalAmount
@@ -1733,9 +1085,9 @@ namespace ParkIRC.Controllers
             }
         }
 
-        private string CalculateDuration(DateTime start, DateTime end)
+        private string CalculateDuration(DateTime start, DateTime? end)
         {
-            var duration = end - start;
+            var duration = (end ?? DateTime.Now) - start;
             var hours = Math.Floor(duration.TotalHours);
             var minutes = duration.Minutes;
 
@@ -1797,7 +1149,7 @@ namespace ParkIRC.Controllers
                 return Json(new
                 {
                     transactions,
-                    currentCount = transactions.Count + ((page - 1) * pageSize),
+                    currentCount = transactions.Count() + ((page - 1) * pageSize),
                     totalCount
                 });
             }
@@ -1809,7 +1161,7 @@ namespace ParkIRC.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GenerateReport(string reportType, string reportFormat, string startDate = null, string endDate = null)
+        public async Task<IActionResult> GenerateReport(string reportType, string reportFormat, string? startDate = null, string? endDate = null)
         {
             try
             {
@@ -2044,7 +1396,8 @@ namespace ParkIRC.Controllers
         [HttpPost]
         public async Task<IActionResult> ProcessExitTicket(string barcode)
         {
-            try {
+            try
+            {
                 // Cari data kendaraan berdasarkan barcode
                 var parkingTransaction = await _context.ParkingTransactions
                     .Include(p => p.Vehicle)
@@ -2067,7 +1420,8 @@ namespace ParkIRC.Controllers
                     amount = totalAmount
                 });
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 return Json(new { success = false, message = ex.Message });
             }
         }
@@ -2075,7 +1429,8 @@ namespace ParkIRC.Controllers
         [HttpPost]
         public async Task<IActionResult> CompleteExit(string transactionNumber, decimal paymentAmount, string paymentMethod)
         {
-            try {
+            try
+            {
                 var transaction = await _context.ParkingTransactions
                     .Include(p => p.Vehicle)
                     .Include(p => p.ParkingSpace)
@@ -2123,7 +1478,8 @@ namespace ParkIRC.Controllers
                     printSuccess = printSuccess
                 });
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 return Json(new { success = false, message = ex.Message });
             }
         }

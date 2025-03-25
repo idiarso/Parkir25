@@ -1,11 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Collections.Generic;
 
 namespace ParkIRC.Models
 {
-    public class ParkingRateConfiguration
+    public class ParkingRateConfiguration : IValidatableObject
     {
         [Key]
         public int Id { get; set; }
@@ -51,6 +51,30 @@ namespace ParkIRC.Models
         [Display(Name = "Tarif Denda")]
         public decimal PenaltyRate { get; set; }
 
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif truk per jam tidak boleh negatif")]
+        [Display(Name = "Tarif Truk per Jam")]
+        public decimal TruckHourlyRate { get; set; }
+
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif bus per jam tidak boleh negatif")]
+        [Display(Name = "Tarif Bus per Jam")]
+        public decimal BusHourlyRate { get; set; }
+
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif mobil per jam tidak boleh negatif")]
+        [Display(Name = "Tarif Mobil per Jam")]
+        public decimal CarHourlyRate { get; set; }
+
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        [Range(0, double.MaxValue, ErrorMessage = "Tarif motor per jam tidak boleh negatif")]
+        [Display(Name = "Tarif Motor per Jam")]
+        public decimal MotorcycleHourlyRate { get; set; }
+
         [Display(Name = "Status Aktif")]
         public bool IsActive { get; set; } = true;
 
@@ -92,15 +116,14 @@ namespace ParkIRC.Models
         public DateTime LastUpdated { get; set; }
         public string UpdatedBy { get; set; } = string.Empty;
 
-        // Custom validation
-        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(System.ComponentModel.DataAnnotations.ValidationContext validationContext)
         {
-            var results = new List<ValidationResult>();
+            var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
 
             // Validate that daily rate is less than 24 hours of hourly rate
             if (DailyRate >= HourlyRate * 24)
             {
-                results.Add(new ValidationResult(
+                results.Add(new System.ComponentModel.DataAnnotations.ValidationResult(
                     "Tarif harian harus lebih murah dari akumulasi tarif per jam selama 24 jam",
                     new[] { nameof(DailyRate) }));
             }
@@ -108,7 +131,7 @@ namespace ParkIRC.Models
             // Validate that weekly rate is less than 7 days of daily rate
             if (WeeklyRate >= DailyRate * 7)
             {
-                results.Add(new ValidationResult(
+                results.Add(new System.ComponentModel.DataAnnotations.ValidationResult(
                     "Tarif mingguan harus lebih murah dari akumulasi tarif harian selama 7 hari",
                     new[] { nameof(WeeklyRate) }));
             }
@@ -116,7 +139,7 @@ namespace ParkIRC.Models
             // Validate that monthly rate is less than 30 days of daily rate
             if (MonthlyRate >= DailyRate * 30)
             {
-                results.Add(new ValidationResult(
+                results.Add(new System.ComponentModel.DataAnnotations.ValidationResult(
                     "Tarif bulanan harus lebih murah dari akumulasi tarif harian selama 30 hari",
                     new[] { nameof(MonthlyRate) }));
             }
@@ -124,7 +147,7 @@ namespace ParkIRC.Models
             // Validate effective dates
             if (EffectiveTo.HasValue && EffectiveTo.Value <= EffectiveFrom)
             {
-                results.Add(new ValidationResult(
+                results.Add(new System.ComponentModel.DataAnnotations.ValidationResult(
                     "Tanggal berlaku akhir harus setelah tanggal berlaku awal",
                     new[] { nameof(EffectiveTo) }));
             }
@@ -132,4 +155,4 @@ namespace ParkIRC.Models
             return results;
         }
     }
-}
+} 

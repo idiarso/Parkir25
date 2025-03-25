@@ -25,10 +25,22 @@ namespace ParkIRC.Models
             await CreateUsersAsync(userManager);
         }
         
+        // New method with expected signature for Program.cs
+        public static async Task InitializeAsync(IServiceProvider serviceProvider, 
+            UserManager<ApplicationUser> userManager, 
+            RoleManager<IdentityRole> roleManager)
+        {
+            // Create roles if they don't exist
+            await CreateRolesAsync(roleManager);
+            
+            // Create default admin and staff users
+            await CreateUsersAsync(userManager);
+        }
+        
         private static async Task CreateRolesAsync(RoleManager<IdentityRole> roleManager)
         {
             // Create roles if they don't exist
-            string[] roleNames = { "Admin", "Staff", "User" };
+            string[] roleNames = { "Admin", "Staff", "User", "Operator" };
             
             foreach (var roleName in roleNames)
             {
@@ -48,7 +60,8 @@ namespace ParkIRC.Models
                 {
                     UserName = "admin@parking.com",
                     Email = "admin@parking.com",
-                    FullName = "System Administrator",
+                    FirstName = "System",
+                    LastName = "Administrator",
                     EmailConfirmed = true
                 };
                 
@@ -66,7 +79,8 @@ namespace ParkIRC.Models
                 {
                     UserName = "staff@parking.com",
                     Email = "staff@parking.com",
-                    FullName = "Staff Member",
+                    FirstName = "Staff",
+                    LastName = "Member",
                     EmailConfirmed = true
                 };
                 
@@ -74,6 +88,26 @@ namespace ParkIRC.Models
                 if (result.Succeeded)
                 {
                     await userManager.AddToRoleAsync(staffUser, "Staff");
+                }
+            }
+            
+            // Create a default operator user
+            if (await userManager.FindByEmailAsync("operator@parking.com") == null)
+            {
+                var operatorUser = new ApplicationUser
+                {
+                    UserName = "operator@parking.com",
+                    Email = "operator@parking.com",
+                    FirstName = "Gate",
+                    LastName = "Operator",
+                    EmailConfirmed = true,
+                    IsOperator = true
+                };
+                
+                var result = await userManager.CreateAsync(operatorUser, "Operator@123");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(operatorUser, "Operator");
                 }
             }
         }

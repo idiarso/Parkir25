@@ -13,22 +13,22 @@ namespace ParkIRC.Extensions
             WriteIndented = true
         };
 
-        public static string ToJson<T>(this T value, JsonSerializerOptions options = null)
+        public static string ToJson<T>(this T value, JsonSerializerOptions? options = null)
         {
             return JsonSerializer.Serialize(value, options ?? DefaultOptions);
         }
 
-        public static T FromJson<T>(this string json, JsonSerializerOptions options = null)
+        public static T FromJson<T>(this string json, JsonSerializerOptions? options = null)
         {
             return JsonSerializer.Deserialize<T>(json, options ?? DefaultOptions);
         }
 
-        public static object FromJson(this string json, Type type, JsonSerializerOptions options = null)
+        public static object FromJson(this string json, Type type, JsonSerializerOptions? options = null)
         {
             return JsonSerializer.Deserialize(json, type, options ?? DefaultOptions);
         }
 
-        public static bool TryFromJson<T>(this string json, out T result, JsonSerializerOptions options = null)
+        public static bool TryFromJson<T>(this string json, out T result, JsonSerializerOptions? options = null)
         {
             try
             {
@@ -42,7 +42,7 @@ namespace ParkIRC.Extensions
             }
         }
 
-        public static bool TryToJson<T>(this T value, out string json, JsonSerializerOptions options = null)
+        public static bool TryToJson<T>(this T value, out string json, JsonSerializerOptions? options = null)
         {
             try
             {

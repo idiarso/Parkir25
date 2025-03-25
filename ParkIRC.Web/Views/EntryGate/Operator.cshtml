@@ -1,82 +1,122 @@
-@model EntryGateViewModel
-<div class="container">
-    <div class="row">
-        <!-- Live Camera Feed -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Live Camera</h5>
+@model ParkIRC.Web.ViewModels.EntryGateViewModel
+
+@{
+    ViewData["Title"] = "Entry Gate Operator";
+}
+
+<div class="entry-gate-container">
+    <div class="gate-header">
+        <h2>Gate Masuk Parkir</h2>
+        <div class="gate-info">
+            <div class="info-item">
+                <span class="info-label">Gate ID:</span>
+                <span class="info-value" id="gate-id">@Model.GateId</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Operator:</span>
+                <span class="info-value" id="operator-name">@Model.OperatorName</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Status:</span>
+                <span class="info-value status @(Model.Status.ToLower() == "ready" ? "status-ready" : "status-error")" id="gate-status">@Model.Status</span>
+            </div>
+        </div>
+        <div class="device-status">
+            <div class="device-item @(Model.IsCameraActive ? "active" : "inactive")">
+                <i class="fas fa-camera"></i>
+                <span>Kamera</span>
+            </div>
+            <div class="device-item @(Model.IsPrinterActive ? "active" : "inactive")">
+                <i class="fas fa-print"></i>
+                <span>Printer</span>
+            </div>
+            <div class="device-item @(Model.IsOfflineMode ? "active" : "inactive")">
+                <i class="fas fa-wifi"></i>
+                <span>Online</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="gate-content">
+        <div class="vehicle-entry-section">
+            <div class="camera-preview" id="camera-preview">
+                <div class="no-camera">
+                    <i class="fas fa-camera"></i>
+                    <p>Tidak ada kamera yang aktif</p>
                 </div>
-                <div class="card-body">
-                    <div id="camera-feed"></div>
-                    <button class="btn btn-primary mt-2" onclick="captureImage()">
-                        <i class="fas fa-camera"></i> Capture
+                <video id="camera-feed" autoplay style="display: none;"></video>
+                <div class="camera-controls">
+                    <button id="capture-button" class="btn btn-primary btn-sm" disabled>
+                        <i class="fas fa-camera"></i> Ambil Foto
+                    </button>
+                    <button id="toggle-camera-button" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-power-off"></i> Hidupkan Kamera
                     </button>
                 </div>
             </div>
+
+            <form id="vehicle-entry-form">
+                <div class="form-group">
+                    <label for="plate-number">Nomor Plat</label>
+                    <input type="text" id="plate-number" name="plateNumber" class="form-control" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="vehicle-type">Jenis Kendaraan</label>
+                    <select id="vehicle-type" name="vehicleType" class="form-control" required>
+                        <option value="Mobil">Mobil</option>
+                        <option value="Motor">Motor</option>
+                        <option value="Truk">Truk</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="print-ticket" name="printTicket" class="form-check-input" checked>
+                    <label for="print-ticket" class="form-check-label">Cetak Tiket</label>
+                </div>
+                <div class="form-group">
+                    <button type="submit" id="submit-entry" class="btn btn-primary btn-block">
+                        <i class="fas fa-sign-in-alt"></i> Proses Kendaraan Masuk
+                    </button>
+                </div>
+            </form>
         </div>
 
-        <!-- Quick Entry Form -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Quick Entry</h5>
-                </div>
-                <div class="card-body">
-                    <form id="quickEntryForm">
-                        <!-- Preset Buttons untuk Jenis Kendaraan -->
-                        <div class="btn-group mb-3">
-                            <button type="button" class="btn btn-outline-primary" onclick="setVehicleType('Motor')">
-                                <i class="fas fa-motorcycle"></i> Motor
-                            </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="setVehicleType('Mobil')">
-                                <i class="fas fa-car"></i> Mobil
-                            </button>
+        <div class="recent-entries">
+            <h4>Kendaraan Terakhir Masuk</h4>
+            <div class="entries-list" id="entries-list">
+                @if (Model.RecentEntries != null && Model.RecentEntries.Any())
+                {
+                    foreach (var entry in Model.RecentEntries)
+                    {
+                        <div class="entry-item">
+                            <div class="entry-item-header">
+                                <span class="plate-number">@entry.PlateNumber</span>
+                                <span class="time">@entry.EntryTime.ToString("HH:mm:ss")</span>
+                            </div>
+                            <div class="entry-item-body">
+                                <span class="vehicle-type">@entry.VehicleType</span>
+                                <button class="btn btn-sm btn-outline-primary print-again" data-id="@entry.Id">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                            </div>
                         </div>
-
-                        <!-- Form Input -->
-                        <div class="form-group">
-                            <label>Plat Nomor</label>
-                            <input type="text" id="plateNumber" class="form-control" 
-                                   placeholder="Contoh: B 1234 ABC"
-                                   onkeyup="autoFormatPlate(this)">
-                        </div>
-
-                        <button type="submit" class="btn btn-success mt-3">
-                            <i class="fas fa-print"></i> Cetak Tiket
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Entries -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Entry Terakhir</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Waktu</th>
-                                    <th>Tiket</th>
-                                    <th>Plat Nomor</th>
-                                    <th>Jenis</th>
-                                    <th>Foto</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentEntries">
-                                <!-- Diisi via JavaScript -->
-                            </tbody>
-                        </table>
+                    }
+                }
+                else
+                {
+                    <div class="no-entries">
+                        <p>Belum ada kendaraan masuk</p>
                     </div>
-                </div>
+                }
             </div>
         </div>
     </div>
-</div> 
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="~/css/entrygate.css">
+}
+
+@section Scripts {
+    <script src="~/js/entrygate.js"></script>
+} 

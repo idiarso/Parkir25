@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using ParkIRC.Extensions;
 
 namespace ParkIRC.Models
 {
@@ -11,43 +12,59 @@ namespace ParkIRC.Models
         private List<string>? _workDays;
         private string _workDaysString = string.Empty;
 
-        public Shift()
-        {
-            Vehicles = new List<Vehicle>();
-            Operators = new List<Operator>();
-            ShiftName = string.Empty;
-            Name = string.Empty;
-            Description = string.Empty;
-            Date = DateTime.Today;
-            _workDays = new List<string>();
-            _workDaysString = string.Empty;
-            CreatedAt = DateTime.UtcNow;
-        }
-
+        [Key]
         public int Id { get; set; }
         
-        [Required(ErrorMessage = "Nama shift wajib diisi")]
-        public string Name { get; set; }
+        [Required]
+        [StringLength(50)]
+        [Display(Name = "Nama Shift")]
+        public string Name { get; set; } = string.Empty;
         
+        [Required]
+        [Display(Name = "Waktu Mulai")]
+        public TimeSpan StartTime { get; set; }
+        
+        [Required]
+        [Display(Name = "Waktu Selesai")]
+        public TimeSpan EndTime { get; set; }
+        
+        [Display(Name = "Deskripsi")]
+        public string? Description { get; set; }
+        
+        [Display(Name = "Aktif")]
+        public bool IsActive { get; set; } = true;
+        
+        public string? OperatorId { get; set; }
+        [ForeignKey("OperatorId")]
+        public virtual ApplicationUser? Operator { get; set; }
+        
+        public virtual ICollection<Vehicle>? Vehicles { get; set; } = new List<Vehicle>();
+        
+        [Display(Name = "Created At")]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        
+        [Display(Name = "Updated At")]
+        public DateTime? UpdatedAt { get; set; }
+        
+        [Display(Name = "Operators")]
+        public ICollection<ApplicationUser> Operators { get; set; } = new List<ApplicationUser>();
+        
+        public Shift()
+        {
+            Name = string.Empty;
+            Vehicles = new List<Vehicle>();
+            IsActive = true;
+        }
+
         [Required(ErrorMessage = "Nama shift wajib diisi")]
         public string ShiftName { get; set; }
         
         [Required(ErrorMessage = "Tanggal wajib diisi")]
         public DateTime Date { get; set; }
         
-        [Required(ErrorMessage = "Waktu mulai wajib diisi")]
-        public DateTime StartTime { get; set; }
-        
-        [Required(ErrorMessage = "Waktu selesai wajib diisi")]
-        public DateTime EndTime { get; set; }
-        
-        public string Description { get; set; }
-        
         [Required(ErrorMessage = "Jumlah operator maksimal wajib diisi")]
         [Range(1, 100, ErrorMessage = "Jumlah operator maksimal harus antara 1-100")]
         public int MaxOperators { get; set; }
-        
-        public bool IsActive { get; set; }
 
         [NotMapped]
         public List<string> WorkDays
@@ -81,28 +98,22 @@ namespace ParkIRC.Models
                 _workDays = null;
             }
         }
-        
-        public DateTime CreatedAt { get; set; }
-        
-        public virtual ICollection<Vehicle> Vehicles { get; set; }
-        public virtual ICollection<Operator> Operators { get; set; }
 
         // Helper method to check if a given time falls within this shift
         public bool IsTimeInShift(DateTime time)
         {
             var timeOfDay = time.TimeOfDay;
-            var startTimeOfDay = StartTime.TimeOfDay;
-            var endTimeOfDay = EndTime.TimeOfDay;
-
-            if (endTimeOfDay > startTimeOfDay)
+            // Using StartTime and EndTime directly as they are already TimeSpan objects
+            
+            if (EndTime > StartTime)
             {
                 // Normal shift (e.g., 9:00 to 17:00)
-                return timeOfDay >= startTimeOfDay && timeOfDay <= endTimeOfDay;
+                return timeOfDay >= StartTime && timeOfDay <= EndTime;
             }
             else
             {
                 // Overnight shift (e.g., 22:00 to 6:00)
-                return timeOfDay >= startTimeOfDay || timeOfDay <= endTimeOfDay;
+                return timeOfDay >= StartTime || timeOfDay <= EndTime;
             }
         }
     }

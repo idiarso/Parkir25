@@ -1,4 +1,10 @@
-# Panduan Administrator Server
+# Panduan Administrator Server ParkIRC
+
+![ParkIRC Logo](assets/images/logo-dark.svg)
+
+**Versi Dokumen:** 1.0.0  
+**Terakhir Diperbarui:** 25 Maret 2025  
+**Penulis:** Tim ParkIRC  
 
 ## Daftar Isi
 1. [Pendahuluan](#pendahuluan)
@@ -10,6 +16,7 @@
 7. [Manajemen Data Offline](#manajemen-data-offline)
 8. [Pemantauan Sistem](#pemantauan-sistem)
 9. [Troubleshooting](#troubleshooting)
+10. [Referensi](#referensi)
 
 ## Pendahuluan
 
@@ -144,28 +151,27 @@ sudo systemctl start parkirc
 
 ## Konfigurasi Database
 
-### Pengaturan Database MySQL
+### Pengaturan Database PostgreSQL
 
 1. **Kredensial Database**:
-   - Kredensial default tersimpan di `config/database.ini`
+   - Kredensial default tersimpan di `appsettings.json`
    - Format file konfigurasi:
-   ```ini
-   [Database]
-   Server=localhost
-   Port=3306
-   Username=parking_user
-   Password=secure_password
-   Database=parking_system
-   ```
+   ```json
+   {
+     "ConnectionStrings": {
+       "DefaultConnection": "Host=localhost;Port=5432;Database=parking_system;Username=parking_user;Password=secure_password"
+     }
+   }
 
 2. **Optimasi Performa**:
    - Tambahkan indeks yang sesuai untuk meningkatkan performa query
-   - Parameter MySQL yang direkomendasikan:
+   - Parameter PostgreSQL yang direkomendasikan:
    ```
-   innodb_buffer_pool_size=1G
-   max_connections=200
-   connect_timeout=10
-   wait_timeout=600
+   shared_buffers = 1GB
+   max_connections = 200
+   work_mem = 16MB
+   maintenance_work_mem = 256MB
+   effective_cache_size = 3GB
    ```
 
 3. **Backup Database**:
@@ -175,7 +181,7 @@ sudo systemctl start parkirc
    ```bash
    #!/bin/bash
    TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-   mysqldump -u backup_user -p'backup_password' parking_system > /backup/parking_system_$TIMESTAMP.sql
+   pg_dump -U backup_user -d parking_system -f /backup/parking_system_$TIMESTAMP.sql
    ```
 
 ## WebSocket Server
@@ -304,9 +310,9 @@ Sistem secara otomatis melakukan backup pada waktu yang dijadwalkan:
 ### Masalah Koneksi Database
 
 1. **Koneksi Terputus**:
-   - Periksa status server MySQL: `systemctl status mysql`
+   - Periksa status server PostgreSQL: `systemctl status postgresql`
    - Verifikasi konfigurasi jaringan
-   - Periksa kredensial di `config/database.ini`
+   - Periksa kredensial di `appsettings.json`
 
 2. **Koneksi Lambat**:
    - Analisis query dengan `EXPLAIN`
@@ -359,4 +365,18 @@ Sistem secara otomatis melakukan backup pada waktu yang dijadwalkan:
    - Selalu backup sebelum update
    - Ikuti prosedur update di `docs/update_procedure.md`
 
-Untuk informasi lebih lanjut atau bantuan, hubungi tim pengembang di developer@parkingsystem.com atau buka ticket support di sistem ticketing internal. 
+Untuk informasi lebih lanjut atau bantuan, hubungi tim pengembang di developer@parkingsystem.com atau buka ticket support di sistem ticketing internal.
+
+## Referensi
+- [Manual ParkIRC](ParkIRC-Manual.md)
+- [Panduan Instalasi](installation.md)
+- [Glossary](glossary.md)
+
+## Riwayat Versi
+
+| Versi | Tanggal | Deskripsi Perubahan |
+|-------|---------|---------------------|
+| 1.0.0 | 25/03/2025 | Dokumen awal |
+
+## Lisensi
+Copyright © 2025 ParkIRC. All rights reserved. 

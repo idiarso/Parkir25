@@ -1,4 +1,6 @@
+using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ParkIRC.Models
 {
@@ -15,5 +17,20 @@ namespace ParkIRC.Models
         public string? DriverName { get; set; }
 
         public string? PhoneNumber { get; set; }
+
+        [Required]
+        public DateTime EntryTime { get; set; } = DateTime.Now;
+
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal HourlyRate { get; set; }
+
+        public string? GateId { get; set; }
+
+        public string? OperatorId { get; set; }
+
+        public string? ImagePath { get; set; }
+
+        public string? Notes { get; set; }
     }
 }

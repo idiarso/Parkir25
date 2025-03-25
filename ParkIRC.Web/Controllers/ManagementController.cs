@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ParkIRC.Data;
 using ParkIRC.Models;
+using ParkIRC.Models.ViewModels;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,11 +13,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Security.Claims;
 using System.Text;
-using ParkIRC.ViewModels;
+using ParkIRC.Web.ViewModels;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using ParkIRC.Services;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
 
 namespace ParkIRC.Controllers
 {
@@ -468,12 +471,12 @@ namespace ParkIRC.Controllers
             {
                 Date = DateTime.Today,
                 IsActive = true,
-                StartTime = DateTime.Today, // Set default time
-                EndTime = DateTime.Today,   // Set default time
-                Name = "",                  // Initialize with empty string
-                ShiftName = "",             // Initialize with empty string
-                Description = "",           // Initialize with empty string
-                MaxOperators = 1            // Set default value
+                StartTime = TimeSpan.Zero,
+                EndTime = TimeSpan.Zero,
+                Name = "",
+                ShiftName = "",
+                Description = "",
+                MaxOperators = 1
             };
             return View(shift);
         }
@@ -482,49 +485,6 @@ namespace ParkIRC.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateShift(Shift shift, string startTime, string endTime, string[] WorkDays)
         {
-            // Log incoming data for debugging
-            _logger.LogInformation($"CreateShift POST method called");
-            _logger.LogInformation($"Received shift data - Name: '{shift.Name}', IsActive: {shift.IsActive}");
-            _logger.LogInformation($"WorkDays count: {(WorkDays?.Length ?? 0)}");
-            _logger.LogInformation($"StartTime: '{startTime}', EndTime: '{endTime}'");
-            
-            // Remove ShiftName validation error if Name is valid
-            if (!string.IsNullOrEmpty(shift.Name))
-            {
-                _logger.LogInformation($"Name is valid: '{shift.Name}'");
-                // Remove ShiftName validation error if it exists
-                ModelState.Remove("ShiftName");
-            }
-            else
-            {
-                ModelState.AddModelError("Name", "Nama shift wajib diisi");
-                _logger.LogWarning("Name is null or empty");
-            }
-
-            if (WorkDays == null || WorkDays.Length == 0)
-            {
-                ModelState.AddModelError("WorkDays", "Pilih minimal satu hari kerja");
-                _logger.LogWarning("No workdays selected");
-            }
-            else
-            {
-                _logger.LogInformation($"Selected workdays: {string.Join(", ", WorkDays)}");
-            }
-
-            if (string.IsNullOrEmpty(startTime))
-            {
-                ModelState.AddModelError("StartTime", "Waktu mulai wajib diisi");
-                _logger.LogWarning("StartTime is null or empty");
-            }
-
-            if (string.IsNullOrEmpty(endTime))
-            {
-                ModelState.AddModelError("EndTime", "Waktu selesai wajib diisi");
-                _logger.LogWarning("EndTime is null or empty");
-            }
-
-            _logger.LogInformation($"ModelState.IsValid: {ModelState.IsValid}");
-
             if (ModelState.IsValid)
             {
                 try
@@ -533,50 +493,33 @@ namespace ParkIRC.Controllers
                     if (TimeSpan.TryParse(startTime, out TimeSpan parsedStartTime) && 
                         TimeSpan.TryParse(endTime, out TimeSpan parsedEndTime))
                     {
-                        var baseDate = DateTime.Today;
-                        shift.StartTime = baseDate.Add(parsedStartTime);
-                        shift.EndTime = baseDate.Add(parsedEndTime);
-                        shift.Date = baseDate;
-                        // Set ShiftName from Name
+                        shift.StartTime = parsedStartTime;
+                        shift.EndTime = parsedEndTime;
+                        shift.Date = DateTime.Today;
                         shift.ShiftName = shift.Name;
-                        _logger.LogInformation($"ShiftName set to: '{shift.ShiftName}'");
                         shift.WorkDaysString = string.Join(",", WorkDays ?? Array.Empty<string>());
-                        shift.CreatedAt = DateTime.Now;
-                        
-                        // Explicitly set IsActive to true for new shifts
+                        shift.CreatedAt = DateTime.UtcNow;
                         shift.IsActive = true;
 
-                        _logger.LogInformation($"Adding shift to database: Name='{shift.Name}', ShiftName='{shift.ShiftName}', WorkDaysString='{shift.WorkDaysString}'");
-                        
                         _context.Add(shift);
                         await _context.SaveChangesAsync();
-
-                        _logger.LogInformation($"Shift added successfully with ID: {shift.Id}");
 
                         // Log the action
                         var journal = new Journal
                         {
                             Action = "CREATE_SHIFT",
                             Description = $"Shift baru dibuat: {shift.Name}",
-                            OperatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "system",
+                            OperatorId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system",
                             Timestamp = DateTime.UtcNow
                         };
                         _context.Journals.Add(journal);
                         await _context.SaveChangesAsync();
 
-                        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-                        {
-                            _logger.LogInformation("Returning JSON success response");
-                            return Json(new { success = true, message = "Shift berhasil dibuat!" });
-                        }
-
-                        _logger.LogInformation("Redirecting to Shifts page");
                         TempData["SuccessMessage"] = "Shift berhasil dibuat!";
                         return RedirectToAction(nameof(Shifts));
                     }
                     else
                     {
-                        _logger.LogWarning($"Invalid time format: StartTime='{startTime}', EndTime='{endTime}'");
                         ModelState.AddModelError("", "Format waktu tidak valid");
                     }
                 }
@@ -586,30 +529,6 @@ namespace ParkIRC.Controllers
                     ModelState.AddModelError("", "Terjadi kesalahan saat menyimpan shift. Silakan coba lagi.");
                 }
             }
-            else
-            {
-                // Log all model state errors for debugging
-                _logger.LogWarning("Model validation failed. Errors:");
-                foreach (var modelState in ModelState)
-                {
-                    foreach (var error in modelState.Value.Errors)
-                    {
-                        _logger.LogWarning($"Field: {modelState.Key}, Error: {error.ErrorMessage}");
-                    }
-                }
-            }
-
-            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-            {
-                var errors = ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList();
-                _logger.LogWarning($"Returning JSON error response: {string.Join(", ", errors)}");
-                return Json(new { success = false, message = string.Join(", ", errors) });
-            }
-
-            _logger.LogInformation("Returning to CreateShift view with model");
             return View(shift);
         }
 
@@ -645,40 +564,24 @@ namespace ParkIRC.Controllers
             {
                 try
                 {
-                    var existingShift = await _context.Shifts
-                        .Include(s => s.Operators)
-                        .Include(s => s.Vehicles)
-                        .FirstOrDefaultAsync(s => s.Id == id);
+                    shift.WorkDaysString = string.Join(",", WorkDays ?? new List<string>());
+                    shift.UpdatedAt = DateTime.UtcNow;
 
-                    if (existingShift == null)
-                    {
-                        return NotFound();
-                    }
-
-                    // Update properties
-                    existingShift.Name = shift.Name;
-                    existingShift.ShiftName = shift.Name;
-                    existingShift.StartTime = shift.StartTime;
-                    existingShift.EndTime = shift.EndTime;
-                    existingShift.Description = shift.Description;
-                    existingShift.MaxOperators = shift.MaxOperators;
-                    existingShift.IsActive = shift.IsActive;
-                    existingShift.WorkDaysString = string.Join(",", WorkDays ?? new List<string>());
-
+                    _context.Update(shift);
                     await _context.SaveChangesAsync();
 
                     // Log the action
                     var journal = new Journal
                     {
                         Action = "EDIT_SHIFT",
-                        Description = $"Shift diperbarui: {shift.Name}",
-                        OperatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "system",
+                        Description = $"Shift diubah: {shift.Name}",
+                        OperatorId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system",
                         Timestamp = DateTime.UtcNow
                     };
                     _context.Journals.Add(journal);
                     await _context.SaveChangesAsync();
 
-                    TempData["Success"] = "Shift berhasil diperbarui!";
+                    TempData["SuccessMessage"] = "Shift berhasil diubah!";
                     return RedirectToAction(nameof(Shifts));
                 }
                 catch (DbUpdateConcurrencyException)
@@ -687,7 +590,10 @@ namespace ParkIRC.Controllers
                     {
                         return NotFound();
                     }
-                    throw;
+                    else
+                    {
+                        throw;
+                    }
                 }
             }
             return View(shift);
@@ -794,7 +700,7 @@ namespace ParkIRC.Controllers
         
         public IActionResult CreateCameraSetting()
         {
-            return View(new CameraSettings
+            return View(new ParkIRC.Models.CameraSettings
             {
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -803,7 +709,7 @@ namespace ParkIRC.Controllers
         
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateCameraSetting(CameraSettings cameraSettings)
+        public async Task<IActionResult> CreateCameraSetting(ParkIRC.Models.CameraSettings cameraSettings)
         {
             if (ModelState.IsValid)
             {
@@ -844,7 +750,7 @@ namespace ParkIRC.Controllers
         
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditCameraSetting(int id, CameraSettings cameraSettings)
+        public async Task<IActionResult> EditCameraSetting(int id, ParkIRC.Models.CameraSettings cameraSettings)
         {
             if (id != cameraSettings.Id)
             {
@@ -971,7 +877,7 @@ namespace ParkIRC.Controllers
         [HttpGet("Backup")]
         public IActionResult Backup()
         {
-            var model = new BackupViewModel
+            var model = new ParkIRC.Models.ViewModels.BackupViewModel
             {
                 BackupOptions = new List<string> { "Database", "Uploads", "Configuration", "Complete" },
                 AvailableBackups = GetAvailableBackups()
@@ -981,7 +887,7 @@ namespace ParkIRC.Controllers
         }
         
         [HttpPost("Backup")]
-        public async Task<IActionResult> CreateBackup(BackupViewModel model)
+        public async Task<IActionResult> CreateBackup(ParkIRC.Models.ViewModels.BackupViewModel model)
         {
             try
             {
@@ -1087,7 +993,7 @@ namespace ParkIRC.Controllers
         [HttpGet("Restore")]
         public IActionResult Restore()
         {
-            var model = new RestoreViewModel
+            var model = new ParkIRC.Models.ViewModels.RestoreViewModel
             {
                 AvailableBackups = GetAvailableBackups()
             };
@@ -1096,7 +1002,7 @@ namespace ParkIRC.Controllers
         }
         
         [HttpPost("Restore")]
-        public async Task<IActionResult> PerformRestore(RestoreViewModel model)
+        public async Task<IActionResult> PerformRestore(ParkIRC.Models.ViewModels.RestoreViewModel model)
         {
             try
             {
@@ -1205,7 +1111,7 @@ namespace ParkIRC.Controllers
         public IActionResult Printer()
         {
             var printers = GetAvailablePrinters();
-            var model = new PrinterManagementViewModel
+            var model = new ParkIRC.Models.ViewModels.PrinterManagementViewModel
             {
                 AvailablePrinters = printers,
                 CurrentPrinter = _printService.GetCurrentPrinter()
@@ -1409,9 +1315,9 @@ namespace ParkIRC.Controllers
             }
         }
         
-        private SystemStatusViewModel GetSystemStatus()
+        private ParkIRC.Models.ViewModels.SystemStatusViewModel GetSystemStatus()
         {
-            var model = new SystemStatusViewModel();
+            var model = new ParkIRC.Models.ViewModels.SystemStatusViewModel();
             
             try
             {
@@ -1552,11 +1458,11 @@ namespace ParkIRC.Controllers
 
         [HttpGet]
         public async Task<IActionResult> VehicleHistory(
-            string status = null,
+            string? status = null,
             DateTime? startDate = null, 
             DateTime? endDate = null,
-            string vehicleType = null,
-            string plateNumber = null,
+            string? vehicleType = null,
+            string? plateNumber = null,
             int page = 1)
         {
             var query = _context.ParkingTransactions
@@ -1606,7 +1512,7 @@ namespace ParkIRC.Controllers
             var transactions = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(t => new VehicleHistoryViewModel
+                .Select(t => new ParkIRC.Models.ViewModels.VehicleHistoryViewModel
                 {
                     Id = t.Id,
                     TicketNumber = t.TicketNumber,
@@ -1622,7 +1528,7 @@ namespace ParkIRC.Controllers
                 })
                 .ToListAsync();
 
-            var model = new VehicleHistoryPageViewModel
+            var model = new ParkIRC.Models.ViewModels.VehicleHistoryPageViewModel
             {
                 Transactions = transactions,
                 CurrentPage = page,
@@ -1639,11 +1545,11 @@ namespace ParkIRC.Controllers
 
         [HttpGet]
         public async Task<IActionResult> ExportVehicleHistory(
-            string status = null,
+            string? status = null,
             DateTime? startDate = null,
             DateTime? endDate = null,
-            string vehicleType = null,
-            string plateNumber = null,
+            string? vehicleType = null,
+            string? plateNumber = null,
             string format = "excel")
         {
             // Similar query building as above
@@ -1685,16 +1591,112 @@ namespace ParkIRC.Controllers
             }
         }
 
+        private byte[] GenerateExcel(dynamic data)
+        {
+            using (var package = new OfficeOpenXml.ExcelPackage())
+            {
+                var worksheet = package.Workbook.Worksheets.Add("Vehicle History");
+                
+                // Add headers
+                worksheet.Cells[1, 1].Value = "Ticket Number";
+                worksheet.Cells[1, 2].Value = "Vehicle Number";
+                worksheet.Cells[1, 3].Value = "Vehicle Type";
+                worksheet.Cells[1, 4].Value = "Entry Time";
+                worksheet.Cells[1, 5].Value = "Exit Time";
+                worksheet.Cells[1, 6].Value = "Duration";
+                worksheet.Cells[1, 7].Value = "Status";
+                worksheet.Cells[1, 8].Value = "Amount";
+
+                // Add data
+                int row = 2;
+                foreach (var item in data)
+                {
+                    worksheet.Cells[row, 1].Value = item.TicketNumber;
+                    worksheet.Cells[row, 2].Value = item.VehicleNumber;
+                    worksheet.Cells[row, 3].Value = item.VehicleType;
+                    worksheet.Cells[row, 4].Value = item.EntryTime;
+                    worksheet.Cells[row, 5].Value = item.ExitTime;
+                    worksheet.Cells[row, 6].Value = item.Duration;
+                    worksheet.Cells[row, 7].Value = item.Status;
+                    worksheet.Cells[row, 8].Value = item.Amount;
+                    row++;
+                }
+
+                // Auto-fit columns
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                return package.GetAsByteArray();
+            }
+        }
+
+        private byte[] GeneratePdf(dynamic data)
+        {
+            using (var ms = new MemoryStream())
+            {
+                var document = new iTextSharp.text.Document(iTextSharp.text.PageSize.A4, 25, 25, 30, 30);
+                var writer = iTextSharp.text.pdf.PdfWriter.GetInstance(document, ms);
+
+                document.Open();
+
+                // Add title
+                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
+                var title = new Paragraph("Vehicle History Report", titleFont);
+                title.Alignment = Element.ALIGN_CENTER;
+                title.SpacingAfter = 20f;
+                document.Add(title);
+
+                // Create table
+                var table = new PdfPTable(8) { WidthPercentage = 100 };
+
+                // Add headers
+                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
+                table.AddCell(new PdfPCell(new Phrase("Ticket Number", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Vehicle Number", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Vehicle Type", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Entry Time", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Exit Time", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Duration", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Status", headerFont)));
+                table.AddCell(new PdfPCell(new Phrase("Amount", headerFont)));
+
+                // Add data
+                var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
+                foreach (var item in data)
+                {
+                    table.AddCell(new PdfPCell(new Phrase(item.TicketNumber, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.VehicleNumber, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.VehicleType, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.EntryTime, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.ExitTime, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.Duration, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.Status, cellFont)));
+                    table.AddCell(new PdfPCell(new Phrase(item.Amount, cellFont)));
+                }
+
+                document.Add(table);
+                document.Close();
+
+                return ms.ToArray();
+            }
+        }
+
         [Authorize(Roles = "Admin")]
         [HttpPost]
-        public async Task<IActionResult> UpdateParkingRates(ParkingRateViewModel model)
+        public async Task<IActionResult> UpdateParkingRates(ParkIRC.Models.ViewModels.ParkingRateViewModel model)
         {
             try
             {
                 var rates = await _context.ParkingRates.FirstOrDefaultAsync();
                 if (rates == null)
                 {
-                    rates = new ParkingRates();
+                    rates = new ParkingRateConfiguration
+                    {
+                        CarHourlyRate = model.CarHourlyRate,
+                        MotorcycleHourlyRate = model.MotorcycleHourlyRate,
+                        TruckHourlyRate = model.TruckHourlyRate,
+                        BusHourlyRate = model.BusHourlyRate,
+                        LastUpdated = DateTime.Now
+                    };
                     _context.ParkingRates.Add(rates);
                 }
 

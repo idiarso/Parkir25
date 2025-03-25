@@ -146,7 +146,7 @@ namespace ParkIRC.Services
                 // Implementasi check kamera sesuai dengan hardware yang digunakan
                 // Contoh sederhana: cek apakah folder gambar bisa diakses
                 var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-                return Directory.Exists(uploadsPath) && Directory.GetAccessControl(uploadsPath) != null;
+                return Directory.Exists(uploadsPath) && File.GetAttributes(uploadsPath).HasFlag(FileAttributes.Directory);
             }
             catch
             {

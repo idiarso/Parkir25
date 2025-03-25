@@ -8,7 +8,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using ParkIRC.Models;
-using ParkIRC.ViewModels;
+using ParkIRC.Web.ViewModels;
 using ParkIRC.Services;
 using System.Text.Encodings.Web;
 using System.Linq;

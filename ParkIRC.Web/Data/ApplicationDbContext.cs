@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ParkIRC.Models;
+using ParkIRC.Web.Models;
 using ParkIRC;
 
 namespace ParkIRC.Data
 {
-    public class ApplicationDbContext : IdentityDbContext<Operator>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
@@ -24,6 +25,8 @@ namespace ParkIRC.Data
         public DbSet<EntryGate> EntryGates { get; set; } = null!;
         public DbSet<SiteSettings> SiteSettings { get; set; } = null!;
         public DbSet<PrinterConfig> PrinterConfigs { get; set; } = null!;
+        public DbSet<VehicleEntry> VehicleEntries { get; set; }
+        public DbSet<VehicleExit> VehicleExits { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -59,11 +62,11 @@ namespace ParkIRC.Data
                 entity.Property(e => e.HourlyRate).HasColumnType("decimal(18,2)");
                 entity.Property(e => e.TotalAmount).HasColumnType("decimal(18,2)");
                 entity.HasOne(e => e.Vehicle)
-                    .WithMany(v => v.Transactions)
+                    .WithMany(v => v.ParkingTransactions)
                     .HasForeignKey(e => e.VehicleId)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.ParkingSpace)
-                    .WithMany(p => p.Transactions)
+                    .WithMany(p => p.ParkingTransactions)
                     .HasForeignKey(e => e.ParkingSpaceId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
@@ -168,6 +171,75 @@ namespace ParkIRC.Data
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.LastChecked).IsRequired();
             });
+
+            builder.Entity<VehicleEntry>(entity =>
+            {
+                entity.HasOne(ve => ve.Vehicle)
+                    .WithMany(v => v.VehicleEntries)
+                    .HasForeignKey(ve => ve.VehicleId);
+
+                entity.HasOne(ve => ve.ParkingSpace)
+                    .WithMany(ps => ps.VehicleEntries)
+                    .HasForeignKey(ve => ve.ParkingSpaceId);
+            });
+
+            builder.Entity<VehicleExit>(entity =>
+            {
+                entity.HasOne(vx => vx.Vehicle)
+                    .WithMany(v => v.VehicleExits)
+                    .HasForeignKey(vx => vx.VehicleId);
+
+                entity.HasOne(vx => vx.ParkingSpace)
+                    .WithMany(ps => ps.VehicleExits)
+                    .HasForeignKey(vx => vx.ParkingSpaceId);
+
+                entity.HasOne(vx => vx.Transaction)
+                    .WithMany()
+                    .HasForeignKey(vx => vx.TransactionId);
+            });
+
+            builder.Entity<Vehicle>(entity =>
+            {
+                entity.HasIndex(v => v.PlateNumber)
+                    .IsUnique();
+            });
+
+            builder.Entity<ParkingSpace>(entity =>
+            {
+                entity.HasIndex(ps => ps.Name)
+                    .IsUnique();
+            });
+
+            // Configure operator mapping
+            builder.Entity<Operator>()
+                .HasMany(o => o.Transactions)
+                .WithOne(t => t.Operator)
+                .HasForeignKey(t => t.OperatorId);
+
+            // Seed operators from users
+            var operators = builder.Entity<ApplicationUser>()
+                .HasData(new ApplicationUser[]
+                {
+                    new ApplicationUser
+                    {
+                        Id = "1",
+                        UserName = "admin",
+                        NormalizedUserName = "ADMIN",
+                        Email = "admin@example.com",
+                        NormalizedEmail = "ADMIN@EXAMPLE.COM",
+                        EmailConfirmed = true,
+                        SecurityStamp = Guid.NewGuid().ToString()
+                    }
+                });
+
+            // Convert users to operators
+            builder.Entity<Operator>()
+                .HasData(new Operator
+                {
+                    Id = "1",
+                    Name = "Admin",
+                    IsActive = true
+                });
         }
     }
 }

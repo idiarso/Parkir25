@@ -1,4 +1,4 @@
-@model ParkIRC.ViewModels.LiveDashboardViewModel
+@model ParkIRC.Web.ViewModels.LiveDashboardViewModel
 @{
     ViewData["Title"] = "Live Dashboard";
 }
@@ -275,10 +275,10 @@
 </div>
 
 <!-- Modals -->
-@await Html.PartialAsync("_VehicleEntryModal", new ParkIRC.ViewModels.VehicleEntryViewModel())
-@await Html.PartialAsync("_VehicleExitModal", new ParkIRC.ViewModels.VehicleExitViewModel())
-@await Html.PartialAsync("_HistoryModal", new ParkIRC.ViewModels.HistoryViewModel())
-@await Html.PartialAsync("_ReportModal", new ParkIRC.ViewModels.ReportViewModel())
+@await Html.PartialAsync("_VehicleEntryModal", new ParkIRC.Web.ViewModels.VehicleEntryViewModel())
+@await Html.PartialAsync("_VehicleExitModal", new ParkIRC.Web.ViewModels.VehicleExitViewModel())
+@await Html.PartialAsync("_HistoryModal", new ParkIRC.Web.ViewModels.HistoryViewModel())
+@await Html.PartialAsync("_ReportModal", new ParkIRC.Web.ViewModels.ReportViewModel())
 
 @section Scripts {
     <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>

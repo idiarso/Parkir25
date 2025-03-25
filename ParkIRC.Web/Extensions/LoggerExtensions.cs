@@ -25,7 +25,7 @@ namespace ParkIRC.Extensions
 
         public static void LogException(this ILogger logger,
             Exception exception,
-            string message = null,
+            string? message = null,
             [CallerMemberName] string methodName = "",
             [CallerFilePath] string sourceFilePath = "",
             [CallerLineNumber] int sourceLineNumber = 0)
@@ -74,7 +74,7 @@ namespace ParkIRC.Extensions
             string user,
             string resource,
             bool isSuccessful,
-            string details = null,
+            string? details = null,
             [CallerMemberName] string methodName = "",
             [CallerFilePath] string sourceFilePath = "",
             [CallerLineNumber] int sourceLineNumber = 0)
@@ -97,8 +97,8 @@ namespace ParkIRC.Extensions
             string action,
             string user,
             string resource,
-            string oldValue = null,
-            string newValue = null,
+            string? oldValue = null,
+            string? newValue = null,
             [CallerMemberName] string methodName = "",
             [CallerFilePath] string sourceFilePath = "",
             [CallerLineNumber] int sourceLineNumber = 0)
@@ -138,7 +138,7 @@ namespace ParkIRC.Extensions
         public static void LogDatabase(this ILogger logger,
             string operation,
             string table,
-            string details = null,
+            string? details = null,
             [CallerMemberName] string methodName = "",
             [CallerFilePath] string sourceFilePath = "",
             [CallerLineNumber] int sourceLineNumber = 0)
@@ -158,7 +158,7 @@ namespace ParkIRC.Extensions
             string endpoint,
             int statusCode,
             TimeSpan duration,
-            string details = null,
+            string? details = null,
             [CallerMemberName] string methodName = "",
             [CallerFilePath] string sourceFilePath = "",
             [CallerLineNumber] int sourceLineNumber = 0)
@@ -204,7 +204,7 @@ namespace ParkIRC.Extensions
                 _logger = logger;
                 _operation = operation;
                 _methodName = methodName;
-                _sourceFile = Path.GetFileName(sourceFile);
+                _sourceFile = sourceFile;
                 _lineNumber = lineNumber;
                 _stopwatch = System.Diagnostics.Stopwatch.StartNew();
             }

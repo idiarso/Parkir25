@@ -1,35 +1,33 @@
 using System;
 using System.Collections.Generic;
-using ParkIRC.Models;
 
-namespace ParkIRC.ViewModels
+namespace ParkIRC.Web.ViewModels
 {
     public class EntryGateMonitoringViewModel
     {
-        public string GateId { get; set; } = string.Empty;
-        public string GateName { get; set; } = string.Empty;
-        public string Location { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public bool IsConnected { get; set; }
-        public DateTime LastActivityTime { get; set; } = DateTime.Now;
-        public List<EntryGateActivity> RecentActivities { get; set; } = new List<EntryGateActivity>();
-        public CameraSettings CameraSettings { get; set; } = new CameraSettings();
+        public List<EntryGateStatusViewModel> EntryGates { get; set; } = new();
+        public List<RecentTransactionViewModel> RecentTransactions { get; set; } = new();
     }
 
-    public class EntryGateViewModel
+    public class EntryGateStatusViewModel
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public string Location { get; set; } = string.Empty;
-        public string IpAddress { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public CameraSettings CameraSettings { get; set; } = new CameraSettings();
+        public bool IsOnline { get; set; }
+        public bool IsOpen { get; set; }
+        public int VehiclesProcessed { get; set; }
+        public DateTime? LastActivity { get; set; }
     }
 
-    public class EntryGateActivity
+    public class RecentTransactionViewModel
     {
-        public DateTime Timestamp { get; set; }
-        public string ActivityType { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
+        public string Id { get; set; } = string.Empty;
+        public string TicketNumber { get; set; } = string.Empty;
+        public string VehicleNumber { get; set; } = string.Empty;
+        public string VehicleType { get; set; } = string.Empty;
+        public DateTime EntryTime { get; set; }
+        public string EntryPoint { get; set; } = string.Empty;
+        public string OperatorId { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
     }
 } 

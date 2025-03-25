@@ -1,4 +1,5 @@
 using System.Globalization;
+using System;
 
 namespace ParkIRC.Extensions
 {
@@ -252,6 +253,16 @@ namespace ParkIRC.Extensions
                 date,
                 CultureInfo.CurrentCulture.DateTimeFormat.CalendarWeekRule,
                 CultureInfo.CurrentCulture.DateTimeFormat.FirstDayOfWeek);
+        }
+
+        /// <summary>
+        /// Gets the Date part of a nullable DateTime
+        /// </summary>
+        /// <param name="dateTime">The nullable DateTime</param>
+        /// <returns>DateTime representing the date part, or DateTime.MinValue if null</returns>
+        public static DateTime Date(this DateTime? dateTime)
+        {
+            return dateTime?.Date ?? DateTime.MinValue;
         }
     }
 } 
