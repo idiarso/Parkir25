@@ -16,6 +16,8 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
 
 namespace ParkIRC.Services
 {
@@ -722,4 +724,4 @@ namespace ParkIRC.Services
         public string Amount { get; set; } = string.Empty;
         public string Barcode { get; set; } = string.Empty;
     }
-} 
+}

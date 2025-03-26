@@ -1,14 +1,12 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using ParkIRC.Data;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
 using ParkIRC.Models;
-using ParkIRC.Web.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace ParkIRC.Web.Controllers
 {
@@ -16,14 +14,17 @@ namespace ParkIRC.Web.Controllers
     public class DashboardController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<DashboardController> _logger;
+        private readonly IParkingService _parkingService;
+        private readonly IConnectionStatusService _connectionStatusService;
 
         public DashboardController(
             ApplicationDbContext context,
-            ILogger<DashboardController> logger)
+            IParkingService parkingService,
+            IConnectionStatusService connectionStatusService)
         {
             _context = context;
-            _logger = logger;
+            _parkingService = parkingService;
+            _connectionStatusService = connectionStatusService;
         }
 
         public async Task<IActionResult> Index()
@@ -76,7 +77,14 @@ namespace ParkIRC.Web.Controllers
                     RecentActivity = recentActivity,
                     HourlyOccupancy = hourlyOccupancy,
                     VehicleDistribution = vehicleDistribution,
-                    ActiveTransactions = (await GetActiveTransactions()).Count
+                    ActiveTransactions = (await GetActiveTransactions()).Count,
+                    ActiveVehicles = await _context.ParkingTransactions
+                        .Where(pt => !pt.IsExit)
+                        .CountAsync(),
+                    TotalRevenue = await _context.ParkingTransactions
+                        .Where(pt => pt.IsExit && pt.ParkingFee > 0)
+                        .SumAsync(pt => pt.ParkingFee),
+                    ConnectionStatus = await _connectionStatusService.GetStatusAsync()
                 };
                 
                 return View(dashboardData);
@@ -193,4 +201,23 @@ namespace ParkIRC.Web.Controllers
                 .ToListAsync();
         }
     }
-} 
+
+    public class DashboardViewModel
+    {
+        public int TotalParkingSpaces { get; set; }
+        public int AvailableParkingSpaces { get; set; }
+        public int OccupiedParkingSpaces { get; set; }
+        public double OccupancyRate { get; set; }
+        public int TotalTransactionsToday { get; set; }
+        public decimal DailyRevenue { get; set; }
+        public decimal WeeklyRevenue { get; set; }
+        public decimal MonthlyRevenue { get; set; }
+        public List<DashboardParkingActivity> RecentActivity { get; set; }
+        public List<OccupancyData> HourlyOccupancy { get; set; }
+        public List<VehicleDistributionData> VehicleDistribution { get; set; }
+        public int ActiveTransactions { get; set; }
+        public int ActiveVehicles { get; set; }
+        public decimal TotalRevenue { get; set; }
+        public ConnectionStatus ConnectionStatus { get; set; }
+    }
+}

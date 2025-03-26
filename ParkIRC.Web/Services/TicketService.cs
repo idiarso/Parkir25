@@ -1,11 +1,13 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using ParkIRC.Models;
 using ParkIRC.Data;
-using Microsoft.EntityFrameworkCore;
 using QRCoder;
 using System.IO;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
 
 namespace ParkIRC.Services
 {
@@ -139,4 +141,4 @@ namespace ParkIRC.Services
             return $"{vehicle.VehicleNumber}|{vehicle.EntryTime:yyyyMMddHHmmss}";
         }
     }
-} 
+}

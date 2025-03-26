@@ -1,21 +1,20 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Data;
-using ParkIRC.Models;
-using ParkIRC.Services;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
 using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
 using System.IO;
-using Microsoft.AspNetCore.Hosting;
 using QRCoder;
 using System.Drawing;
 using System.Drawing.Imaging;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using System.Linq;
+using System.Threading.Tasks;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class GateController : Controller
@@ -407,4 +406,4 @@ namespace ParkIRC.Controllers
             }
         }
     }
-} 
+}

@@ -1,21 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using ParkIRC.Data;
-using ParkIRC.Models;
-using ParkIRC.Web.ViewModels;
-using ParkIRC.Services;
-using System;
-using System.Linq;
+using ParkIRC.Web.Data;
+using ParkIRC.Data.Models;
+using ParkIRC.Data.Services;
+using ParkIRC.Data.Hub;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.SignalR;
-using ParkIRC.Hubs;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using ParkIRC.Extensions;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize(Roles = "Admin,Operator")]
     public class EntryGateController : Controller
@@ -23,7 +15,7 @@ namespace ParkIRC.Controllers
         private readonly ApplicationDbContext _context;
         private readonly ILogger<EntryGateController> _logger;
         private readonly ConnectionStatusService _connectionStatusService;
-        private readonly CameraService _cameraService;
+        private readonly ICameraService _cameraService;
         private readonly StorageService _storageService;
         private readonly ITicketService _ticketService;
         private readonly IPrinterService _printerService;
@@ -33,7 +25,7 @@ namespace ParkIRC.Controllers
             ApplicationDbContext context,
             ILogger<EntryGateController> logger,
             ConnectionStatusService connectionStatusService,
-            CameraService cameraService,
+            ICameraService cameraService,
             StorageService storageService,
             ITicketService ticketService,
             IPrinterService printerService,
@@ -418,4 +410,4 @@ namespace ParkIRC.Controllers
             return View(viewModel);
         }
     }
-} 
+}

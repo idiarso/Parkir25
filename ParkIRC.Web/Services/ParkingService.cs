@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ParkIRC.Data;
 using ParkIRC.Models;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.SignalR;
 using ParkIRC.Hubs;

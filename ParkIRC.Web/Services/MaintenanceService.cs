@@ -3,17 +3,21 @@ using Microsoft.Extensions.Hosting;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using ParkIRC.Data;
+using ParkIRC.Models;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
 
 namespace ParkIRC.Services
 {
     public class MaintenanceService : IHostedService
     {
         private readonly ILogger<MaintenanceService> _logger;
-        private readonly ApplicationDbContext _context;
+        private readonly ParkIRC.Data.ApplicationDbContext _context;
         private Timer _timer;
 
-        public MaintenanceService(ILogger<MaintenanceService> logger, ApplicationDbContext context)
+        public MaintenanceService(ILogger<MaintenanceService> logger, ParkIRC.Data.ApplicationDbContext context)
         {
             _logger = logger;
             _context = context;

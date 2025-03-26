@@ -1,4 +1,4 @@
-@model ParkIRC.Models.ParkingRateConfiguration
+@model ParkIRC.Data.Models.Rate
 
 @{
     ViewData["Title"] = "Tambah Tarif Baru";
@@ -27,9 +27,14 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label asp-for="EffectiveFrom" class="control-label">Berlaku Sejak</label>
-                            <input asp-for="EffectiveFrom" class="form-control" type="date" />
-                            <span asp-validation-for="EffectiveFrom" class="text-danger"></span>
+                            <label class="control-label">Status</label>
+                            <div class="form-check">
+                                <input asp-for="IsActive" class="form-check-input" type="checkbox" checked />
+                                <label class="form-check-label">
+                                    Aktif
+                                </label>
+                            </div>
+                            <span asp-validation-for="IsActive" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -37,12 +42,12 @@
                 <div class="row mb-3">
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label asp-for="BaseRate" class="control-label">Tarif Dasar</label>
+                            <label asp-for="BaseFee" class="control-label">Tarif Dasar</label>
                             <div class="input-group">
                                 <span class="input-group-text">Rp</span>
-                                <input asp-for="BaseRate" class="form-control" />
+                                <input asp-for="BaseFee" class="form-control" />
                             </div>
-                            <span asp-validation-for="BaseRate" class="text-danger"></span>
+                            <span asp-validation-for="BaseFee" class="text-danger"></span>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -57,19 +62,6 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label asp-for="PenaltyRate" class="control-label">Tarif Denda</label>
-                            <div class="input-group">
-                                <span class="input-group-text">Rp</span>
-                                <input asp-for="PenaltyRate" class="form-control" />
-                            </div>
-                            <span asp-validation-for="PenaltyRate" class="text-danger"></span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <div class="form-group">
                             <label asp-for="DailyRate" class="control-label">Tarif Harian</label>
                             <div class="input-group">
                                 <span class="input-group-text">Rp</span>
@@ -78,17 +70,10 @@
                             <span asp-validation-for="DailyRate" class="text-danger"></span>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label asp-for="WeeklyRate" class="control-label">Tarif Mingguan</label>
-                            <div class="input-group">
-                                <span class="input-group-text">Rp</span>
-                                <input asp-for="WeeklyRate" class="form-control" />
-                            </div>
-                            <span asp-validation-for="WeeklyRate" class="text-danger"></span>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
                         <div class="form-group">
                             <label asp-for="MonthlyRate" class="control-label">Tarif Bulanan</label>
                             <div class="input-group">
@@ -100,21 +85,13 @@
                     </div>
                 </div>
                 
-                <div class="form-group form-check mb-3">
-                    <label class="form-check-label">
-                        <input class="form-check-input" asp-for="IsActive" /> @Html.DisplayNameFor(model => model.IsActive)
-                    </label>
-                </div>
-                
-                <div class="form-group mb-4">
-                    <input type="hidden" asp-for="CreatedBy" />
-                    <input type="hidden" asp-for="LastModifiedBy" />
-                    <input type="hidden" asp-for="CreatedAt" />
-                </div>
-                
-                <div class="form-group">
-                    <a asp-action="Index" class="btn btn-secondary">Kembali</a>
-                    <button type="submit" class="btn btn-primary">Simpan</button>
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Simpan
+                    </button>
+                    <a href="@Url.Action("Index")" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Kembali
+                    </a>
                 </div>
             </form>
         </div>
@@ -123,4 +100,4 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-} 
+}

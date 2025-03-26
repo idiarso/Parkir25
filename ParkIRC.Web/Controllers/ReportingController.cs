@@ -1,16 +1,17 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Models;
-using ParkIRC.Data;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
+using System.Threading.Tasks;
+using System;
+using System.Linq;
 using System.Collections.Generic;
 using ParkIRC.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class ReportingController : Controller

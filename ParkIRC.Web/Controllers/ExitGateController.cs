@@ -1,38 +1,33 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using ParkIRC.Data;
-using ParkIRC.Models;
-using ParkIRC.Services;
-using ParkIRC.Hubs;
+using Microsoft.EntityFrameworkCore;
+using ParkIRC.Web.Data;
+using ParkIRC.Data.Models;
+using ParkIRC.Data.Services;
+using ParkIRC.Data.Hub;
+using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.SignalR;
 using System.Linq;
-using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
-using ParkIRC.Web.ViewModels;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class ExitGateController : Controller
     {
-        private readonly ILogger<ExitGateController> _logger;
         private readonly ApplicationDbContext _context;
-        private readonly PrintService _printService;
         private readonly IHubContext<ParkingHub> _hubContext;
+        private readonly PrintService _printService;
 
         public ExitGateController(
-            ILogger<ExitGateController> logger,
             ApplicationDbContext context,
-            PrintService printService,
-            IHubContext<ParkingHub> hubContext)
+            IHubContext<ParkingHub> hubContext,
+            PrintService printService)
         {
-            _logger = logger;
             _context = context;
-            _printService = printService;
             _hubContext = hubContext;
+            _printService = printService;
         }
 
         // GET: /ExitGate
@@ -325,4 +320,4 @@ namespace ParkIRC.Controllers
         public DateTime LastSync { get; set; }
         public List<VehicleExit> RecentExits { get; set; } = new();
     }
-} 
+}

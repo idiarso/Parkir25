@@ -1,39 +1,50 @@
 using Microsoft.AspNetCore.SignalR;
-using System.Threading.Tasks;
 using ParkIRC.Models;
-using ParkIRC.Data;
+using ParkIRC.Services;
+using System.Threading.Tasks;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using Microsoft.AspNetCore.Authorization;
-using ParkIRC.Services;
+using ParkIRC.Web.Services;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ParkIRC.Hubs
+namespace ParkIRC.Web.Hubs
 {
     [Authorize]
     public class ParkingHub : Hub
     {
-        private readonly IOfflineDataService _offlineDataService;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ParkingHub> _logger;
+        private readonly IOfflineDataService _offlineDataService;
         private readonly ConnectionStatusService _connectionStatusService;
-        private static readonly Dictionary<string, string> _userConnections = new Dictionary<string, string>();
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IPrinterService _printerService;
+        private readonly ICameraService _cameraService;
+        private readonly IParkingService _parkingService;
+        private static readonly Dictionary<string, string> _userConnections = new Dictionary<string, string>();
 
         public ParkingHub(
             ApplicationDbContext context,
             ILogger<ParkingHub> logger,
             IOfflineDataService offlineDataService,
             ConnectionStatusService connectionStatusService,
-            IServiceScopeFactory scopeFactory)
+            IServiceScopeFactory scopeFactory,
+            IPrinterService printerService,
+            ICameraService cameraService,
+            IParkingService parkingService)
         {
             _context = context;
             _logger = logger;
             _offlineDataService = offlineDataService;
             _connectionStatusService = connectionStatusService;
             _scopeFactory = scopeFactory;
+            _printerService = printerService;
+            _cameraService = cameraService;
+            _parkingService = parkingService;
         }
 
         public override async Task OnConnectedAsync()
@@ -454,5 +465,75 @@ namespace ParkIRC.Hubs
         {
             await Clients.All.SendAsync("PrintReceipt", receiptData);
         }
+
+        public async Task EnterVehicle(string plateNumber, string vehicleType)
+        {
+            try
+            {
+                var entryGate = await _context.EntryGates.FirstOrDefaultAsync();
+                if (entryGate == null)
+                {
+                    await Clients.Caller.SendAsync("ShowError", "Entry gate not configured");
+                    return;
+                }
+
+                var parkingTransaction = await _parkingService.CreateEntryTransaction(
+                    plateNumber,
+                    vehicleType,
+                    entryGate.Id
+                );
+
+                if (parkingTransaction != null)
+                {
+                    await _printerService.PrintEntryTicket(parkingTransaction);
+                    await Clients.Caller.SendAsync("ShowSuccess", "Vehicle entered successfully");
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("ShowError", "Failed to create parking transaction");
+                }
+            }
+            catch (Exception ex)
+            {
+                await Clients.Caller.SendAsync("ShowError", $"Error: {ex.Message}");
+            }
+        }
+
+        public async Task ExitVehicle(string plateNumber)
+        {
+            try
+            {
+                var exitGate = await _context.EntryGates.FirstOrDefaultAsync();
+                if (exitGate == null)
+                {
+                    await Clients.Caller.SendAsync("ShowError", "Exit gate not configured");
+                    return;
+                }
+
+                var parkingTransaction = await _parkingService.CreateExitTransaction(
+                    plateNumber,
+                    exitGate.Id
+                );
+
+                if (parkingTransaction != null)
+                {
+                    await _printerService.PrintExitReceipt(parkingTransaction);
+                    await Clients.Caller.SendAsync("ShowSuccess", "Vehicle exited successfully");
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("ShowError", "Failed to create exit transaction");
+                }
+            }
+            catch (Exception ex)
+            {
+                await Clients.Caller.SendAsync("ShowError", $"Error: {ex.Message}");
+            }
+        }
+
+        public async Task UpdateConnectionStatus(bool isConnected)
+        {
+            await _connectionStatusService.UpdateStatus(isConnected);
+        }
     }
-} 
+}

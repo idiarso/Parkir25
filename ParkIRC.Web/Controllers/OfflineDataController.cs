@@ -1,27 +1,27 @@
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using System.Threading.Tasks;
-using System;
-using System.Collections.Generic;
-using ParkIRC.Models;
-using ParkIRC.Data;
-using ParkIRC.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
+using System.Threading.Tasks;
+using System.Linq;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     public class OfflineDataController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<OfflineDataController> _logger;
+        private readonly IOfflineDataService _offlineDataService;
 
-        public OfflineDataController(ApplicationDbContext context, ILogger<OfflineDataController> logger)
+        public OfflineDataController(
+            ApplicationDbContext context,
+            IOfflineDataService offlineDataService)
         {
             _context = context;
-            _logger = logger;
+            _offlineDataService = offlineDataService;
         }
         
         [HttpPost("sync")]
@@ -63,4 +63,4 @@ namespace ParkIRC.Controllers
             }
         }
     }
-} 
+}

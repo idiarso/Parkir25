@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
 @using Microsoft.EntityFrameworkCore
 @inject UserManager<ParkIRC.Models.ApplicationUser> UserManager
@@ -56,12 +56,12 @@
     <title>@ViewData["Title"] - ParkIRC</title>
     
     <!-- CSS Libraries -->
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     
     <!-- Custom CSS -->
+    <link rel="stylesheet" href="~/css/dashboard.css" />
     <link rel="stylesheet" href="~/css/site.css" />
-    <link rel="stylesheet" href="~/css/theme.css" />
     <link rel="stylesheet" href="~/css/sidebar.css" />
     <link rel="stylesheet" href="~/css/header.css" />
     
@@ -129,119 +129,37 @@
         <div class="parkiRC-sidebar">
             <div class="parkiRC-sidebar__wrapper">
                 <nav class="parkiRC-sidebar__menu-wrapper">
-                    <ul class="parkiRC-sidebar__menu">
-                        <!-- Dashboard -->
-                        <li class="parkiRC-sidebar__menu__item">
-                            <a href="@Url.Action("Index","Home")" class="parkiRC-sidebar__menu__link">
-                                <i class="fas fa-tachometer-alt"></i>
-                                <span>Dashboard</span>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Home" asp-action="Index">
+                                <i class="fas fa-home"></i> Dashboard
                             </a>
                         </li>
-
-                        <!-- Gate Operations -->
-                        <li class="parkiRC-sidebar__menu__item has-children">
-                            <a href="#" class="parkiRC-sidebar__menu__link">
-                                <i class="fas fa-car"></i>
-                                <span>Gate Operations</span>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="GateOperations" asp-action="Index">
+                                <i class="fas fa-door-open"></i> Gate Operations
                             </a>
-                            <ul class="parkiRC-sidebar__submenu">
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Operations","Gate")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-sign-in-alt"></i>
-                                        <span>Gate Controls</span>
-                                    </a>
-                                </li>
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Entry","Gate")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-sign-in-alt"></i>
-                                        <span>Entry Gate</span>
-                                    </a>
-                                </li>
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Exit","Gate")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-sign-out-alt"></i>
-                                        <span>Exit Gate</span>
-                                    </a>
-                                </li>
-                            </ul>
                         </li>
-
-                        <!-- Parking Management -->
-                        <li class="parkiRC-sidebar__menu__item has-children">
-                            <a href="#" class="parkiRC-sidebar__menu__link">
-                                <i class="fas fa-parking"></i>
-                                <span>Parking</span>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Parking" asp-action="Index">
+                                <i class="fas fa-parking"></i> Parking
                             </a>
-                            <ul class="parkiRC-sidebar__submenu">
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("ParkingSlots","Management")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-th"></i>
-                                        <span>Parking Spaces</span>
-                                    </a>
-                                </li>
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Index","Transaction")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-exchange-alt"></i>
-                                        <span>Transactions</span>
-                                    </a>
-                                </li>
-                            </ul>
                         </li>
-
-                        <!-- Reports -->
-                        <li class="parkiRC-sidebar__menu__item has-children">
-                            <a href="#" class="parkiRC-sidebar__menu__link">
-                                <i class="fas fa-chart-bar"></i>
-                                <span>Reports</span>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Reports" asp-action="Index">
+                                <i class="fas fa-chart-bar"></i> Reports
                             </a>
-                            <ul class="parkiRC-sidebar__submenu">
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Daily","Reports")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-calendar-day"></i>
-                                        <span>Daily Report</span>
-                                    </a>
-                                </li>
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Monthly","Reports")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-calendar-alt"></i>
-                                        <span>Monthly Report</span>
-                                    </a>
-                                </li>
-                            </ul>
                         </li>
-
-                        <!-- Settings -->
-                        <li class="parkiRC-sidebar__menu__item has-children">
-                            <a href="#" class="parkiRC-sidebar__menu__link">
-                                <i class="fas fa-cog"></i>
-                                <span>Settings</span>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Settings" asp-action="Index">
+                                <i class="fas fa-cog"></i> Settings
                             </a>
-                            <ul class="parkiRC-sidebar__submenu">
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Index","Rates")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-money-bill-wave"></i>
-                                        <span>Parking Rates</span>
-                                    </a>
-                                </li>
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Index","User")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-users"></i>
-                                        <span>User Management</span>
-                                    </a>
-                                </li>
-                                <li class="parkiRC-sidebar__menu__item">
-                                    <a href="@Url.Action("Settings","System")" class="parkiRC-sidebar__menu__link">
-                                        <i class="fas fa-wrench"></i>
-                                        <span>System Settings</span>
-                                    </a>
-                                </li>
-                            </ul>
                         </li>
                     </ul>
                 </nav>
                 <div class="parkiRC-sidebar__footer">
                     <span class="parkiRC-sidebar__footer__title">ParkIRC</span>
-                    <p class="parkiRC-sidebar__footer__copyright">© 2024 All Rights Reserved</p>
+                    <p class="parkiRC-sidebar__footer__copyright"> 2024 All Rights Reserved</p>
                 </div>
             </div>
         </div>
@@ -270,7 +188,7 @@
                 <div class="container-fluid">
                     <div class="row">
                         <div class="col-md-6">
-                            &copy; 2024 - ParkIRC - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                            2024 - ParkIRC - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </div>
                         <div class="col-md-6 text-end">
                             <span class="text-muted">Version 1.0.0</span>
@@ -284,8 +202,8 @@
     <!-- Core JavaScript -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    <script src="~/js/theme.js" asp-append-version="true"></script>
+    <script src="~/js/site.js"></script>
+    <script src="~/js/theme.js"></script>
     
     <!-- Custom Scripts -->
     <script>

@@ -1,58 +1,58 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Data;
-using ParkIRC.Models;
-using System;
-using System.Linq;
+using ParkIRC.Data.Models;
+using ParkIRC.Data.Services;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class RatesController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IRateService _rateService;
 
-        public RatesController(ApplicationDbContext context)
+        public RatesController(
+            ApplicationDbContext context,
+            IRateService rateService)
         {
             _context = context;
+            _rateService = rateService;
         }
 
         // Display list of parking rates
         public async Task<IActionResult> Index()
         {
-            var rates = await _context.Set<ParkingRateConfiguration>().ToListAsync();
+            var rates = await _context.Rates
+                .OrderBy(r => r.VehicleType)
+                .ToListAsync();
+
             return View(rates);
         }
 
         // Create new rate
         public IActionResult Create()
         {
-            var rate = new ParkingRateConfiguration
+            var rate = new Rate
             {
                 VehicleType = "car", // Default value, will be changed by user
-                CreatedAt = DateTime.Now,
-                EffectiveFrom = DateTime.Now,
                 IsActive = true,
-                CreatedBy = User.Identity?.Name ?? "System",
-                LastModifiedBy = User.Identity?.Name ?? "System"
+                CreatedAt = DateTime.Now
             };
             return View(rate);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(ParkingRateConfiguration rate)
+        public async Task<IActionResult> Create(Rate rate)
         {
             if (ModelState.IsValid)
             {
                 rate.CreatedAt = DateTime.Now;
-                rate.LastModifiedAt = DateTime.Now;
-                rate.CreatedBy = User.Identity?.Name ?? "System";
-                rate.LastModifiedBy = User.Identity?.Name ?? "System";
+                rate.UpdatedAt = DateTime.Now;
                 
-                _context.Add(rate);
+                await _context.Rates.AddAsync(rate);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
@@ -67,7 +67,7 @@ namespace ParkIRC.Controllers
                 return NotFound();
             }
 
-            var rate = await _context.Set<ParkingRateConfiguration>().FindAsync(id);
+            var rate = await _context.Rates.FindAsync(id);
             if (rate == null)
             {
                 return NotFound();
@@ -77,7 +77,7 @@ namespace ParkIRC.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, ParkingRateConfiguration rate)
+        public async Task<IActionResult> Edit(int id, Rate rate)
         {
             if (id != rate.Id)
             {
@@ -88,45 +88,58 @@ namespace ParkIRC.Controllers
             {
                 try
                 {
-                    rate.LastModifiedAt = DateTime.Now;
-                    rate.LastModifiedBy = User.Identity?.Name ?? "System";
+                    rate.UpdatedAt = DateTime.Now;
                     
                     _context.Update(rate);
                     await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!RateExists(rate.Id))
+                    if (!await RateExists(rate.Id))
                     {
                         return NotFound();
                     }
-                    else
-                    {
-                        throw;
-                    }
+                    throw;
                 }
-                return RedirectToAction(nameof(Index));
             }
             return View(rate);
         }
 
         // Delete rate
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int? id)
         {
-            var rate = await _context.Set<ParkingRateConfiguration>().FindAsync(id);
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var rate = await _context.Rates
+                .FirstOrDefaultAsync(m => m.Id == id);
+            if (rate == null)
+            {
+                return NotFound();
+            }
+
+            return View(rate);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var rate = await _context.Rates.FindAsync(id);
             if (rate != null)
             {
-                _context.Set<ParkingRateConfiguration>().Remove(rate);
+                _context.Rates.Remove(rate);
                 await _context.SaveChangesAsync();
             }
             return RedirectToAction(nameof(Index));
         }
 
-        private bool RateExists(int id)
+        private async Task<bool> RateExists(int id)
         {
-            return _context.Set<ParkingRateConfiguration>().Any(e => e.Id == id);
+            return await _context.Rates.AnyAsync(e => e.Id == id);
         }
     }
-} 
+}

@@ -1,13 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ParkIRC.Data;
 using ParkIRC.Models;
-using ParkIRC.Services;
-using Microsoft.AspNetCore.Authorization;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
 using System;
 using System.Threading.Tasks;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class TicketController : Controller
@@ -88,4 +90,4 @@ namespace ParkIRC.Controllers
             }
         }
     }
-} 
+}

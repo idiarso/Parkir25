@@ -1,0 +1,71 @@
+@model ParkIRC.Data.Models.Rate
+
+@{
+    ViewData["Title"] = "Detail Tarif";
+}
+
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-info-circle me-2"></i>Detail Tarif Parkir</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <tbody>
+                        <tr>
+                            <th>Jenis Kendaraan</th>
+                            <td>@Model.VehicleType</td>
+                        </tr>
+                        <tr>
+                            <th>Tarif Dasar</th>
+                            <td>@Model.BaseFee.ToRupiah()</td>
+                        </tr>
+                        <tr>
+                            <th>Tarif per Jam</th>
+                            <td>@Model.HourlyRate.ToRupiah()</td>
+                        </tr>
+                        <tr>
+                            <th>Tarif Harian</th>
+                            <td>@Model.DailyRate.ToRupiah()</td>
+                        </tr>
+                        <tr>
+                            <th>Tarif Bulanan</th>
+                            <td>@Model.MonthlyRate.ToRupiah()</td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>
+                                @if (Model.IsActive)
+                                {
+                                    <span class="badge bg-success">Aktif</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Tidak Aktif</span>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Dibuat Pada</th>
+                            <td>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                        </tr>
+                        <tr>
+                            <th>Diubah Pada</th>
+                            <td>@(Model.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-group mt-4">
+                <a href="@Url.Action("Edit", new { id = Model.Id })" class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>Edit
+                </a>
+                <a href="@Url.Action("Index")" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Kembali
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

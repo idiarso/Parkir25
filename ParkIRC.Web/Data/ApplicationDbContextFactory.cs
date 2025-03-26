@@ -1,24 +1,27 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 
-namespace ParkIRC.Data
+namespace ParkIRC.Web.Data
 {
-    public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
+    public class ApplicationDbContextFactory : IDbContextFactory<ApplicationDbContext>
     {
-        public ApplicationDbContext CreateDbContext(string[] args)
+        private readonly IConfiguration _configuration;
+
+        public ApplicationDbContextFactory(IConfiguration configuration)
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json")
-                .Build();
+            _configuration = configuration;
+        }
 
-            var builder = new DbContextOptionsBuilder<ApplicationDbContext>();
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
-            
-            builder.UseNpgsql(connectionString, options => options.MigrationsAssembly("ParkIRC"));
-
-            return new ApplicationDbContext(builder.Options);
+        public ApplicationDbContext CreateDbContext()
+        {
+            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+            var connectionString = _configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                connectionString = "Host=localhost;Database=parkirc;Username=postgres;Password=1q2w3e4r5t;Pooling=true";
+            }
+            optionsBuilder.UseNpgsql(connectionString);
+            return new ApplicationDbContext(optionsBuilder.Options);
         }
     }
-} 
+}

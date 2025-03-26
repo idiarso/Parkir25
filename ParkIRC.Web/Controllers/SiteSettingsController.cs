@@ -1,27 +1,25 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+using ParkIRC.Web.Data;
 using ParkIRC.Web.Models;
-using ParkIRC.Data;
+using ParkIRC.Web.Services;
+using System.Threading.Tasks;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize(Roles = "Admin")]
     public class SiteSettingsController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly IWebHostEnvironment _webHostEnvironment;
-        
+        private readonly ISiteSettingsService _settingsService;
+
         public SiteSettingsController(
             ApplicationDbContext context,
-            IWebHostEnvironment webHostEnvironment)
+            ISiteSettingsService settingsService)
         {
             _context = context;
-            _webHostEnvironment = webHostEnvironment;
+            _settingsService = settingsService;
         }
 
         public async Task<IActionResult> Index()
@@ -34,15 +32,16 @@ namespace ParkIRC.Controllers
                     SiteName = "ParkIRC",
                     ShowLogo = true,
                     ThemeColor = "#007bff",
-                    FooterText = "© 2024 ParkIRC"
+                    FooterText = " 2024 ParkIRC"
                 };
-                _context.SiteSettings.Add(settings);
+                await _context.SiteSettings.AddAsync(settings);
                 await _context.SaveChangesAsync();
             }
             return View(settings);
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Update(SiteSettings model, IFormFile logo, IFormFile favicon)
         {
             if (ModelState.IsValid)
@@ -80,10 +79,11 @@ namespace ParkIRC.Controllers
                 settings.LastUpdated = DateTime.Now;
                 settings.UpdatedBy = User.Identity.Name;
 
+                _context.Update(settings);
                 await _context.SaveChangesAsync();
                 TempData["Message"] = "Pengaturan site berhasil diupdate";
             }
             return RedirectToAction(nameof(Index));
         }
     }
-} 
+}

@@ -1,33 +1,17 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Data;
-using ParkIRC.Models;
-using ParkIRC.Models.ViewModels;
+using ParkIRC.Web.Data;
+using ParkIRC.Data.Models;
+using ParkIRC.Data.Services;
+using Microsoft.AspNetCore.SignalR;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
+using System.Linq;
 using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Security.Claims;
-using System.Text;
-using ParkIRC.Web.ViewModels;
-using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using ParkIRC.Services;
-using iText.Layout;
-using iText.Layout.Element;
-using iText.Layout.Properties;
-using iText.Kernel.Pdf;
-using iText.Kernel.Font;
-using iText.Kernel.Geom;
-using OfficeOpenXml;
-using Path = System.IO.Path;
+using ParkIRC.Data.Models.ViewModels;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class ManagementController : Controller

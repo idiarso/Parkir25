@@ -1,4 +1,4 @@
-@model IEnumerable<ParkIRC.Models.ParkingRateConfiguration>
+@model IEnumerable<ParkIRC.Data.Models.Rate>
 @using ParkIRC.Extensions
 
 @{
@@ -22,10 +22,10 @@
                             <th>Tarif Dasar</th>
                             <th>Tarif per Jam</th>
                             <th>Tarif Harian</th>
-                            <th>Tarif Mingguan</th>
                             <th>Tarif Bulanan</th>
                             <th>Status</th>
-                            <th>Berlaku Sejak</th>
+                            <th>Dibuat Pada</th>
+                            <th>Diubah Pada</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
@@ -34,10 +34,9 @@
                         {
                             <tr>
                                 <td>@item.VehicleType</td>
-                                <td>@item.BaseRate.ToRupiah()</td>
+                                <td>@item.BaseFee.ToRupiah()</td>
                                 <td>@item.HourlyRate.ToRupiah()</td>
                                 <td>@item.DailyRate.ToRupiah()</td>
-                                <td>@item.WeeklyRate.ToRupiah()</td>
                                 <td>@item.MonthlyRate.ToRupiah()</td>
                                 <td>
                                     @if (item.IsActive)
@@ -49,7 +48,8 @@
                                         <span class="badge bg-danger">Tidak Aktif</span>
                                     }
                                 </td>
-                                <td>@item.EffectiveFrom.ToString("dd/MM/yyyy")</td>
+                                <td>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@(item.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
                                 <td>
                                     <div class="btn-group" role="group">
                                         <a href="@Url.Action("Edit", new { id = item.Id })" class="btn btn-sm btn-info">
@@ -94,10 +94,11 @@
     <script>
         $(document).ready(function() {
             $('#ratesTable').DataTable({
-                language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json'
-                }
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Indonesian.json"
+                },
+                "order": [[0, "asc"]]
             });
         });
     </script>
-} 
+}

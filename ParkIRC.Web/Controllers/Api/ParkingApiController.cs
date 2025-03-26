@@ -1,45 +1,137 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Models;
-using ParkIRC.Data;
-using System;
-using System.Linq;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.SignalR;
-using ParkIRC.Hubs;
-using ParkIRC.Services;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
+using ParkIRC.Models;
+using ParkIRC.Services;
 
-namespace ParkIRC.Controllers.Api
+namespace ParkIRC.Web.Controllers.Api
 {
-    [Route("api/v1/[controller]")]
     [ApiController]
-    [Authorize]
+    [Route("api/[controller]")]
     public class ParkingApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<ParkingApiController> _logger;
-        private readonly IHubContext<ParkingHub> _hubContext;
         private readonly IParkingService _parkingService;
-        private readonly PrintService _printService;
 
         public ParkingApiController(
             ApplicationDbContext context,
-            ILogger<ParkingApiController> logger,
-            IParkingService parkingService,
-            IHubContext<ParkingHub> hubContext,
-            PrintService printService)
+            IParkingService parkingService)
         {
             _context = context;
-            _logger = logger;
             _parkingService = parkingService;
-            _hubContext = hubContext;
-            _printService = printService;
         }
-        
+
+        [HttpGet]
+        public async Task<IActionResult> GetParkingSpaces()
+        {
+            var spaces = await _context.ParkingSpaces
+                .Include(s => s.Vehicle)
+                .ToListAsync();
+
+            return Ok(spaces);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetParkingSpace(int id)
+        {
+            var space = await _context.ParkingSpaces
+                .Include(s => s.Vehicle)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (space == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(space);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateParkingSpace([FromBody] ParkingSpace space)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            await _context.ParkingSpaces.AddAsync(space);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetParkingSpace), new { id = space.Id }, space);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateParkingSpace(int id, [FromBody] ParkingSpace space)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (id != space.Id)
+            {
+                return BadRequest();
+            }
+
+            _context.Entry(space).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteParkingSpace(int id)
+        {
+            var space = await _context.ParkingSpaces.FindAsync(id);
+            if (space == null)
+            {
+                return NotFound();
+            }
+
+            _context.ParkingSpaces.Remove(space);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        [HttpPost("assign")]
+        public async Task<IActionResult> AssignVehicle([FromBody] Vehicle vehicle)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var parkingSpace = await _parkingService.AssignVehicle(vehicle);
+            if (parkingSpace == null)
+            {
+                return BadRequest("No available parking spaces");
+            }
+
+            return Ok(parkingSpace);
+        }
+
+        [HttpPost("exit")]
+        public async Task<IActionResult> ExitVehicle([FromBody] Vehicle vehicle)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var parkingSpace = await _parkingService.ExitVehicle(vehicle);
+            if (parkingSpace == null)
+            {
+                return BadRequest("Vehicle not found in parking");
+            }
+
+            return Ok(parkingSpace);
+        }
+
         // GET: api/v1/parking/dashboard
         [HttpGet("dashboard")]
         public async Task<ActionResult<DashboardData>> GetDashboardData()
@@ -553,4 +645,4 @@ namespace ParkIRC.Controllers.Api
         public decimal ParkingFee { get; set; }
         public string PaymentMethod { get; set; }
     }
-} 
+}

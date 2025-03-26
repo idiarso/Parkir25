@@ -21,8 +21,8 @@ namespace ParkIRC.Extensions
         {
             try
             {
-                var connectionString = configuration.GetConnectionString(name);
-                return !string.IsNullOrEmpty(connectionString) ? connectionString : defaultValue;
+                var value = configuration.GetConnectionString(name);
+                return value ?? defaultValue;
             }
             catch
             {
@@ -49,7 +49,7 @@ namespace ParkIRC.Extensions
             try
             {
                 var section = configuration.GetSection(sectionName);
-                return section.Exists();
+                return section != null && section.Exists();
             }
             catch
             {
@@ -62,7 +62,7 @@ namespace ParkIRC.Extensions
             try
             {
                 var section = configuration.GetSection(key);
-                return section.Get<T[]>() ?? Array.Empty<T>();
+                return section != null ? section.Get<T[]>() ?? Array.Empty<T>() : Array.Empty<T>();
             }
             catch
             {
@@ -75,8 +75,8 @@ namespace ParkIRC.Extensions
             try
             {
                 var section = configuration.GetSection(sectionName);
-                return section.GetChildren()
-                    .ToDictionary(x => x.Key, x => x.Value ?? string.Empty);
+                return section != null ? section.GetChildren()
+                    .ToDictionary(x => x.Key, x => x.Value ?? string.Empty) : new Dictionary<string, string>();
             }
             catch
             {
@@ -103,7 +103,7 @@ namespace ParkIRC.Extensions
             try
             {
                 connectionString = configuration.GetConnectionString(name);
-                return !string.IsNullOrEmpty(connectionString);
+                return connectionString != null;
             }
             catch
             {
@@ -117,7 +117,7 @@ namespace ParkIRC.Extensions
             try
             {
                 var section = configuration.GetSection(sectionName);
-                value = section.Get<T>();
+                value = section != null ? section.Get<T>() : new T();
                 return value != null;
             }
             catch
@@ -146,7 +146,7 @@ namespace ParkIRC.Extensions
         public static T GetRequiredSection<T>(this IConfiguration configuration, string sectionName) where T : new()
         {
             var section = configuration.GetSection(sectionName);
-            var value = section.Get<T>();
+            var value = section != null ? section.Get<T>() : new T();
             if (value == null)
                 throw new InvalidOperationException($"Required configuration section '{sectionName}' is missing.");
             return value;
@@ -186,4 +186,4 @@ namespace ParkIRC.Extensions
             return configuration;
         }
     }
-} 
+}

@@ -1,118 +1,132 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using ParkIRC.Data;
-using System;
-using System.Linq;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
 using System.Threading.Tasks;
 
-namespace ParkIRC.Models
+namespace ParkIRC.Web.Models
 {
-    public static class SeedData
+    public class SeedData
     {
-        public static async Task InitializeAsync(IServiceProvider serviceProvider)
+        public static async Task InitializeAsync(ApplicationDbContext context)
         {
-            using var context = new ApplicationDbContext(
-                serviceProvider.GetRequiredService<DbContextOptions<ApplicationDbContext>>());
-                
-            var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-            
-            // Create roles if they don't exist
-            await CreateRolesAsync(roleManager);
-            
-            // Create default admin and staff users
-            await CreateUsersAsync(userManager);
-        }
-        
-        // New method with expected signature for Program.cs
-        public static async Task InitializeAsync(IServiceProvider serviceProvider, 
-            UserManager<ApplicationUser> userManager, 
-            RoleManager<IdentityRole> roleManager)
-        {
-            // Create roles if they don't exist
-            await CreateRolesAsync(roleManager);
-            
-            // Create default admin and staff users
-            await CreateUsersAsync(userManager);
-        }
-        
-        private static async Task CreateRolesAsync(RoleManager<IdentityRole> roleManager)
-        {
-            // Create roles if they don't exist
-            string[] roleNames = { "Admin", "Staff", "User", "Operator" };
-            
-            foreach (var roleName in roleNames)
+            if (context == null)
             {
-                if (!await roleManager.RoleExistsAsync(roleName))
-                {
-                    await roleManager.CreateAsync(new IdentityRole(roleName));
-                }
+                throw new ArgumentNullException(nameof(context));
             }
-        }
-        
-        private static async Task CreateUsersAsync(UserManager<ApplicationUser> userManager)
-        {
-            // Create a default admin user
-            if (await userManager.FindByEmailAsync("admin@parking.com") == null)
+
+            await context.Database.EnsureCreatedAsync();
+
+            // Seed camera configurations
+            if (!await context.Cameras.AnyAsync())
             {
-                var adminUser = new ApplicationUser
+                await context.Cameras.AddRangeAsync(new[]
                 {
-                    UserName = "admin@parking.com",
-                    Email = "admin@parking.com",
-                    FirstName = "System",
-                    LastName = "Administrator",
-                    EmailConfirmed = true,
-                    BirthDate = new DateTime(1990, 1, 1).ToUniversalTime()
-                };
-                
-                var result = await userManager.CreateAsync(adminUser, "Admin@123");
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(adminUser, "Admin");
-                }
+                    new CameraConfig
+                    {
+                        Name = "Entry Camera 1",
+                        Url = "http://camera1.local/video",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    },
+                    new CameraConfig
+                    {
+                        Name = "Exit Camera 1",
+                        Url = "http://camera2.local/video",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    }
+                });
             }
-            
-            // Create a default staff user
-            if (await userManager.FindByEmailAsync("staff@parking.com") == null)
+
+            // Seed printer configurations
+            if (!await context.Printers.AnyAsync())
             {
-                var staffUser = new ApplicationUser
+                await context.Printers.AddRangeAsync(new[]
                 {
-                    UserName = "staff@parking.com",
-                    Email = "staff@parking.com",
-                    FirstName = "Staff",
-                    LastName = "Member",
-                    EmailConfirmed = true,
-                    BirthDate = new DateTime(1995, 1, 1).ToUniversalTime()
-                };
-                
-                var result = await userManager.CreateAsync(staffUser, "Staff@123");
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(staffUser, "Staff");
-                }
+                    new PrinterConfig
+                    {
+                        Name = "Entry Printer",
+                        PrinterName = "EntryPrinter1",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    },
+                    new PrinterConfig
+                    {
+                        Name = "Exit Printer",
+                        PrinterName = "ExitPrinter1",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    }
+                });
             }
-            
-            // Create a default operator user
-            if (await userManager.FindByEmailAsync("operator@parking.com") == null)
+
+            // Seed entry gates
+            if (!await context.EntryGates.AnyAsync())
             {
-                var operatorUser = new ApplicationUser
+                await context.EntryGates.AddRangeAsync(new[]
                 {
-                    UserName = "operator@parking.com",
-                    Email = "operator@parking.com",
-                    FirstName = "Gate",
-                    LastName = "Operator",
-                    EmailConfirmed = true,
-                    IsOperator = true,
-                    BirthDate = new DateTime(1998, 1, 1).ToUniversalTime()
-                };
-                
-                var result = await userManager.CreateAsync(operatorUser, "Operator@123");
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(operatorUser, "Operator");
-                }
+                    new EntryGate
+                    {
+                        Name = "Main Entry",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    }
+                });
             }
+
+            // Seed exit gates
+            if (!await context.ExitGates.AnyAsync())
+            {
+                await context.ExitGates.AddRangeAsync(new[]
+                {
+                    new ExitGate
+                    {
+                        Name = "Main Exit",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    }
+                });
+            }
+
+            // Seed parking rates
+            if (!await context.ParkingRates.AnyAsync())
+            {
+                await context.ParkingRates.AddRangeAsync(new[]
+                {
+                    new ParkingRate
+                    {
+                        VehicleType = "Car",
+                        BaseRate = 2000,
+                        RatePerHour = 1000,
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    },
+                    new ParkingRate
+                    {
+                        VehicleType = "Motorcycle",
+                        BaseRate = 1000,
+                        RatePerHour = 500,
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    }
+                });
+            }
+
+            // Seed site settings
+            if (!await context.SiteSettings.AnyAsync())
+            {
+                await context.SiteSettings.AddAsync(new SiteSettings
+                {
+                    SiteName = "Parking Management System",
+                    Theme = "light",
+                    CurrencySymbol = "$",
+                    TimeFormat = "HH:mm",
+                    DateFormat = "yyyy-MM-dd",
+                    CreatedAt = DateTime.Now
+                });
+            }
+
+            await context.SaveChangesAsync();
         }
     }
-} 
+}

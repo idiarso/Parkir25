@@ -1,15 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
-using ParkIRC.Data;
-using ParkIRC.Models;
-using ParkIRC.Hubs;
-using System;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
+using System.Threading.Tasks;
+using ParkIRC.Web.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
-using ParkIRC.Services;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -17,12 +17,19 @@ namespace ParkIRC.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IHubContext<ParkingHub> _parkingHubContext;
+        private readonly IParkingService _parkingService;
+        private readonly ILogger<ParkingTransactionController> _logger;
 
-        public ParkingTransactionController(ApplicationDbContext context, 
-                                           IHubContext<ParkingHub> parkingHubContext)
+        public ParkingTransactionController(
+            ApplicationDbContext context,
+            IHubContext<ParkingHub> parkingHubContext,
+            IParkingService parkingService,
+            ILogger<ParkingTransactionController> logger)
         {
             _context = context;
             _parkingHubContext = parkingHubContext;
+            _parkingService = parkingService;
+            _logger = logger;
         }
 
         // POST: api/ParkingTransaction/entry
@@ -89,6 +96,7 @@ namespace ParkIRC.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred during vehicle entry");
                 return StatusCode(500, new { Success = false, Message = $"Error: {ex.Message}" });
             }
         }
@@ -143,6 +151,7 @@ namespace ParkIRC.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred during vehicle exit");
                 return StatusCode(500, new { Success = false, Message = $"Error: {ex.Message}" });
             }
         }
@@ -155,4 +164,4 @@ namespace ParkIRC.Controllers
             public string? PhotoPath { get; set; }
         }
     }
-} 
+}

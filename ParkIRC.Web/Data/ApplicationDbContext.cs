@@ -4,7 +4,7 @@ using ParkIRC.Models;
 using ParkIRC.Web.Models;
 using ParkIRC;
 
-namespace ParkIRC.Data
+namespace ParkIRC.Web.Data
 {
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
@@ -149,6 +149,14 @@ namespace ParkIRC.Data
                 entity.Property(e => e.Location).HasMaxLength(255);
                 entity.Property(e => e.IpAddress).HasMaxLength(100);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.HasOne(g => g.Camera)
+                    .WithMany()
+                    .HasForeignKey(g => g.CameraId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(g => g.Printer)
+                    .WithMany()
+                    .HasForeignKey(g => g.PrinterId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<SiteSettings>(entity =>

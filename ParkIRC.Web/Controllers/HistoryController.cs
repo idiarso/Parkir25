@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Data;
-using ParkIRC.Models.ViewModels;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,7 +16,7 @@ using iText.Kernel.Font;
 using iText.Kernel.Geom;
 using OfficeOpenXml;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class HistoryController : Controller

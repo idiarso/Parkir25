@@ -1,9 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Logging;
+using ParkIRC.Data;
 using ParkIRC.Models;
 using ParkIRC.Services;
 
@@ -189,4 +193,4 @@ namespace ParkIRC.Controllers
             }
         }
     }
-} 
+}

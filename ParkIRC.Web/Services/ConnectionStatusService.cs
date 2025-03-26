@@ -1,16 +1,19 @@
+using Microsoft.EntityFrameworkCore;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.SignalR;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+using ParkIRC.Hubs;
+using ParkIRC.Models;
 using System;
 using System.Threading;
 using System.Diagnostics;
-using ParkIRC.Hubs;
 using System.IO;
 using Microsoft.Extensions.Configuration;
-using ParkIRC.Data;
 
-namespace ParkIRC.Services
+namespace ParkIRC.Web.Services
 {
     public class ConnectionStatusService : IHostedService, IDisposable
     {

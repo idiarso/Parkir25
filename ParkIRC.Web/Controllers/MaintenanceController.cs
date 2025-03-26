@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Data;
-using System;
+using ParkIRC.Web.Data;
 using System.Threading.Tasks;
-using System.Text;
+using System;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     public class MaintenanceController : Controller
     {

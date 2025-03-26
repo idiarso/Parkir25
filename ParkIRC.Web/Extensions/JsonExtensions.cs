@@ -159,7 +159,7 @@ namespace ParkIRC.Extensions
 
         public static JsonSerializerOptions CreateOptions(
             bool propertyNameCaseInsensitive = true,
-            JsonNamingPolicy propertyNamingPolicy = null,
+            JsonNamingPolicy? propertyNamingPolicy = null,
             JsonIgnoreCondition defaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             bool writeIndented = true)
         {

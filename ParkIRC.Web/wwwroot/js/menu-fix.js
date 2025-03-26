@@ -6,81 +6,60 @@
     "use strict";
 
     $(document).ready(function() {
-        // Mobile menu toggle
-        $(".geex-header__menu-toggle").on("click", function(e) {
+        // Sidebar toggle functionality
+        $("#sidebar-toggle").on("click", function(e) {
             e.preventDefault();
-            $(".geex-header__menu-wrapper").toggleClass("active");
-            $("body").toggleClass("menu-open");
+            $(".parkiRC-sidebar").toggleClass("collapsed");
+            $(".parkiRC-content").toggleClass("expanded");
         });
 
         // Add active class to current menu item
         const currentPath = window.location.pathname;
         
-        // Handle submenu items for desktop
-        $(".geex-header__menu__item.has-children").on("mouseenter", function() {
-            $(this).addClass("hover");
-        }).on("mouseleave", function() {
-            $(this).removeClass("hover");
-        });
-
-        // For touch devices - toggle submenu on click
-        $(".geex-header__menu__item.has-children > .geex-header__menu__link").on("click", function(e) {
-            if (window.innerWidth > 991) {
-                if (!$(this).parent().hasClass("hover")) {
-                    e.preventDefault();
-                    $(this).parent().addClass("hover");
-                }
+        // Handle submenu items
+        $(".parkiRC-sidebar__menu__item.has-children > .parkiRC-sidebar__menu__link").on("click", function(e) {
+            const $parent = $(this).parent();
+            
+            if ($parent.hasClass("active")) {
+                $parent.removeClass("active");
+                $(this).siblings(".parkiRC-sidebar__submenu").slideUp();
             } else {
-                e.preventDefault();
-                $(this).parent().toggleClass("active");
-                $(this).siblings(".geex-header__submenu").slideToggle();
+                // Close other open submenus
+                $(".parkiRC-sidebar__menu__item.has-children").removeClass("active");
+                $(".parkiRC-sidebar__submenu").slideUp();
+                
+                $parent.addClass("active");
+                $(this).siblings(".parkiRC-sidebar__submenu").slideDown();
             }
+            
+            // Prevent navigation if it's a submenu toggle
+            e.preventDefault();
         });
 
         // Find active menu item based on current path
-        $('.geex-header__menu__link, .geex-header__submenu .geex-header__menu__link').each(function() {
+        $('.parkiRC-sidebar__menu__link, .parkiRC-sidebar__submenu .parkiRC-sidebar__menu__link').each(function() {
             const menuLink = $(this).attr('href');
             
             if (menuLink && currentPath.indexOf(menuLink) > -1) {
                 $(this).addClass('active');
                 
                 // If it's a submenu item, also highlight parent
-                if ($(this).closest('.geex-header__submenu').length) {
-                    $(this).closest('.geex-header__menu__item.has-children')
-                           .addClass('active')
-                           .find('> .geex-header__menu__link')
+                if ($(this).closest('.parkiRC-sidebar__submenu').length) {
+                    $(this).closest('.parkiRC-sidebar__menu__item.has-children')
                            .addClass('active');
                 }
             }
         });
 
-        // Close mobile menu when clicking outside
+        // Close sidebar when clicking outside
         $(document).on("click", function(e) {
-            if (
-                $(e.target).closest(".geex-header__menu-wrapper").length === 0 &&
-                $(e.target).closest(".geex-header__menu-toggle").length === 0 &&
-                $(".geex-header__menu-wrapper").hasClass("active")
-            ) {
-                $(".geex-header__menu-wrapper").removeClass("active");
-                $("body").removeClass("menu-open");
+            if (!$(e.target).closest(".parkiRC-sidebar").length && 
+                !$(e.target).closest("#sidebar-toggle").length &&
+                $(".parkiRC-sidebar").hasClass("collapsed")) {
+                $(".parkiRC-sidebar").removeClass("collapsed");
+                $(".parkiRC-content").removeClass("expanded");
             }
         });
-
-        // Add missing menu toggler for mobile if not present
-        if ($(".geex-header__menu-toggle").length === 0) {
-            $(".geex-header").prepend(
-                '<button class="geex-header__menu-toggle">' +
-                '<span></span><span></span><span></span>' +
-                '</button>'
-            );
-
-            // Re-bind the event
-            $(".geex-header__menu-toggle").on("click", function(e) {
-                e.preventDefault();
-                $(".geex-header__menu-wrapper").toggleClass("active");
-                $("body").toggleClass("menu-open");
-            });
-        }
     });
 
-})(jQuery); 
+})(jQuery);

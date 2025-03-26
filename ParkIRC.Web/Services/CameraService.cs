@@ -1,11 +1,16 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using ParkIRC.Data;
+using ParkIRC.Models;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using ParkIRC.Models;
-using ParkIRC.Data;
-using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
-namespace ParkIRC.Services
+namespace ParkIRC.Web.Services
 {
     public interface ICameraService
     {
@@ -15,18 +20,28 @@ namespace ParkIRC.Services
         Task<bool> UpdateSettingsAsync(CameraSettings settings);
         Task<bool> TestConnectionAsync();
         Task<byte[]> TakePhoto();
+        Task<List<CameraConfig>> GetCameras();
+        Task<CameraConfig> GetCamera(int id);
+        Task<CameraConfig> AddCamera(CameraConfig camera);
+        Task<CameraConfig> UpdateCamera(CameraConfig camera);
+        Task DeleteCamera(int id);
     }
 
     public class CameraService : ICameraService
     {
         private readonly ILogger<CameraService> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _env;
         private bool _isInitialized;
 
-        public CameraService(ILogger<CameraService> logger, ApplicationDbContext context)
+        public CameraService(
+            ILogger<CameraService> logger,
+            ApplicationDbContext context,
+            IWebHostEnvironment env)
         {
             _logger = logger;
             _context = context;
+            _env = env;
             _isInitialized = false;
         }
 
@@ -130,5 +145,39 @@ namespace ParkIRC.Services
                 throw;
             }
         }
+
+        public async Task<List<CameraConfig>> GetCameras()
+        {
+            return await _context.Cameras.ToListAsync();
+        }
+
+        public async Task<CameraConfig> GetCamera(int id)
+        {
+            return await _context.Cameras.FindAsync(id);
+        }
+
+        public async Task<CameraConfig> AddCamera(CameraConfig camera)
+        {
+            await _context.Cameras.AddAsync(camera);
+            await _context.SaveChangesAsync();
+            return camera;
+        }
+
+        public async Task<CameraConfig> UpdateCamera(CameraConfig camera)
+        {
+            _context.Update(camera);
+            await _context.SaveChangesAsync();
+            return camera;
+        }
+
+        public async Task DeleteCamera(int id)
+        {
+            var camera = await _context.Cameras.FindAsync(id);
+            if (camera != null)
+            {
+                _context.Cameras.Remove(camera);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
-} 
+}

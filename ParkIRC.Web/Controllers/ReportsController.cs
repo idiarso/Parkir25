@@ -1,31 +1,29 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ParkIRC.Data;
-using ParkIRC.Models;
-using ParkIRC.Models.ViewModels;
-using System;
-using System.Linq;
+using ParkIRC.Web.Data;
+using ParkIRC.Web.Models;
+using ParkIRC.Web.Services;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Logging;
-using iText.Layout;
-using iText.Layout.Element;
-using iText.Layout.Properties;
-using iText.Kernel.Pdf;
-using System.IO;
-using OfficeOpenXml;
+using ParkIRC.Models;
 
-namespace ParkIRC.Controllers
+namespace ParkIRC.Web.Controllers
 {
     [Authorize]
     public class ReportsController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IParkingService _parkingService;
         private readonly ILogger<ReportsController> _logger;
 
-        public ReportsController(ApplicationDbContext context, ILogger<ReportsController> logger)
+        public ReportsController(
+            ApplicationDbContext context,
+            IParkingService parkingService,
+            ILogger<ReportsController> logger)
         {
             _context = context;
+            _parkingService = parkingService;
             _logger = logger;
         }
 
@@ -33,32 +31,23 @@ namespace ParkIRC.Controllers
         {
             try
             {
-                var model = new ReportsViewModel
+                var viewModel = new ReportsViewModel
                 {
-                    DailyTransactions = await _context.ParkingTransactions
-                        .Include(t => t.Vehicle)
-                        .Where(t => t.EntryTime.Date == DateTime.Today)
-                        .OrderByDescending(t => t.EntryTime)
-                        .ToListAsync(),
+                    DailyRevenue = await _context.ParkingTransactions
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && t.ExitTime >= DateTime.Today)
+                        .SumAsync(t => t.ParkingFee),
                     MonthlyRevenue = await _context.ParkingTransactions
-                        .Where(t => t.EntryTime >= DateTime.Today.AddMonths(-1))
-                        .SumAsync(t => t.Amount),
-                    VehicleTypeStats = await _context.ParkingTransactions
-                        .Include(t => t.Vehicle)
-                        .Where(t => t.EntryTime >= DateTime.Today.AddMonths(-1))
-                        .GroupBy(t => t.Vehicle.VehicleType)
-                        .Select(g => new VehicleTypeStats
-                        {
-                            VehicleType = g.Key,
-                            Count = g.Count(),
-                            TotalRevenue = g.Sum(t => t.Amount),
-                            AverageTransaction = g.Average(t => t.Amount)
-                        })
-                        .OrderByDescending(g => g.TotalRevenue)
-                        .ToListAsync()
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && 
+                               t.ExitTime >= DateTime.Today.AddMonths(-1))
+                        .SumAsync(t => t.ParkingFee),
+                    TotalTransactions = await _context.ParkingTransactions.CountAsync(),
+                    ActiveVehicles = await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit),
+                    OccupancyRate = (await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit)) * 100.0 / (await _context.ParkingSpaces.CountAsync())
                 };
 
-                return View(model);
+                return View(viewModel);
             }
             catch (Exception ex)
             {
@@ -67,7 +56,37 @@ namespace ParkIRC.Controllers
             }
         }
 
-        public async Task<IActionResult> MonthlyReport(DateTime? date)
+        public async Task<IActionResult> Daily()
+        {
+            try
+            {
+                var viewModel = new ReportsViewModel
+                {
+                    DailyRevenue = await _context.ParkingTransactions
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && t.ExitTime >= DateTime.Today)
+                        .SumAsync(t => t.ParkingFee),
+                    MonthlyRevenue = await _context.ParkingTransactions
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && 
+                               t.ExitTime >= DateTime.Today)
+                        .SumAsync(t => t.ParkingFee),
+                    TotalTransactions = await _context.ParkingTransactions
+                        .CountAsync(t => t.ExitTime >= DateTime.Today),
+                    ActiveVehicles = await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit && t.EntryTime >= DateTime.Today),
+                    OccupancyRate = (await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit && t.EntryTime >= DateTime.Today)) * 100.0 / (await _context.ParkingSpaces.CountAsync())
+                };
+
+                return View("Index", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating daily report");
+                return StatusCode(500, "Error generating daily report");
+            }
+        }
+
+        public async Task<IActionResult> Monthly(DateTime? date)
         {
             try
             {
@@ -75,33 +94,24 @@ namespace ParkIRC.Controllers
                 var startDate = new DateTime(reportDate.Year, reportDate.Month, 1);
                 var endDate = startDate.AddMonths(1).AddDays(-1);
 
-                var model = new ReportsViewModel
+                var viewModel = new ReportsViewModel
                 {
-                    DailyTransactions = await _context.ParkingTransactions
-                        .Include(t => t.Vehicle)
-                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
-                        .OrderByDescending(t => t.EntryTime)
-                        .ToListAsync(),
+                    DailyRevenue = await _context.ParkingTransactions
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && t.ExitTime >= startDate && t.ExitTime <= endDate)
+                        .SumAsync(t => t.ParkingFee),
                     MonthlyRevenue = await _context.ParkingTransactions
-                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
-                        .SumAsync(t => t.Amount),
-                    VehicleTypeStats = await _context.ParkingTransactions
-                        .Include(t => t.Vehicle)
-                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
-                        .GroupBy(t => t.Vehicle.VehicleType)
-                        .Select(g => new VehicleTypeStats
-                        {
-                            VehicleType = g.Key,
-                            Count = g.Count(),
-                            TotalRevenue = g.Sum(t => t.Amount),
-                            AverageTransaction = g.Average(t => t.Amount)
-                        })
-                        .OrderByDescending(g => g.TotalRevenue)
-                        .ToListAsync(),
-                    CurrentDate = reportDate
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && 
+                               t.ExitTime >= startDate && t.ExitTime <= endDate)
+                        .SumAsync(t => t.ParkingFee),
+                    TotalTransactions = await _context.ParkingTransactions
+                        .CountAsync(t => t.ExitTime >= startDate && t.ExitTime <= endDate),
+                    ActiveVehicles = await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit && t.EntryTime >= startDate && t.EntryTime <= endDate),
+                    OccupancyRate = (await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit && t.EntryTime >= startDate && t.EntryTime <= endDate)) * 100.0 / (await _context.ParkingSpaces.CountAsync())
                 };
 
-                return View("Index", model);
+                return View("Index", viewModel);
             }
             catch (Exception ex)
             {
@@ -114,33 +124,24 @@ namespace ParkIRC.Controllers
         {
             try
             {
-                var model = new ReportsViewModel
+                var viewModel = new ReportsViewModel
                 {
-                    DailyTransactions = await _context.ParkingTransactions
-                        .Include(t => t.Vehicle)
-                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
-                        .OrderByDescending(t => t.EntryTime)
-                        .ToListAsync(),
+                    DailyRevenue = await _context.ParkingTransactions
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && t.ExitTime >= startDate && t.ExitTime <= endDate)
+                        .SumAsync(t => t.ParkingFee),
                     MonthlyRevenue = await _context.ParkingTransactions
-                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
-                        .SumAsync(t => t.Amount),
-                    VehicleTypeStats = await _context.ParkingTransactions
-                        .Include(t => t.Vehicle)
-                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
-                        .GroupBy(t => t.Vehicle.VehicleType)
-                        .Select(g => new VehicleTypeStats
-                        {
-                            VehicleType = g.Key,
-                            Count = g.Count(),
-                            TotalRevenue = g.Sum(t => t.Amount),
-                            AverageTransaction = g.Average(t => t.Amount)
-                        })
-                        .OrderByDescending(g => g.TotalRevenue)
-                        .ToListAsync(),
-                    CurrentDate = startDate ?? DateTime.Today
+                        .Where(t => t.IsExit && t.ParkingFee > 0 && 
+                               t.ExitTime >= startDate && t.ExitTime <= endDate)
+                        .SumAsync(t => t.ParkingFee),
+                    TotalTransactions = await _context.ParkingTransactions
+                        .CountAsync(t => t.ExitTime >= startDate && t.ExitTime <= endDate),
+                    ActiveVehicles = await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit && t.EntryTime >= startDate && t.EntryTime <= endDate),
+                    OccupancyRate = (await _context.ParkingTransactions
+                        .CountAsync(t => !t.IsExit && t.EntryTime >= startDate && t.EntryTime <= endDate)) * 100.0 / (await _context.ParkingSpaces.CountAsync())
                 };
 
-                return PartialView("_ReportPreview", model);
+                return PartialView("_ReportPreview", viewModel);
             }
             catch (Exception ex)
             {
@@ -334,6 +335,15 @@ namespace ParkIRC.Controllers
                 _logger.LogError(ex, "Error generating Excel report");
                 return StatusCode(500, "Error generating Excel report");
             }
+        }
+
+        public class ReportsViewModel
+        {
+            public decimal DailyRevenue { get; set; }
+            public decimal MonthlyRevenue { get; set; }
+            public int TotalTransactions { get; set; }
+            public int ActiveVehicles { get; set; }
+            public double OccupancyRate { get; set; }
         }
     }
 }
