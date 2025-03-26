@@ -1,18 +1,18 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ParkIRC.Data;
-using ParkIRC.Models;
+using ParkIRC.Models.ViewModels;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
-using ParkIRC.Web.ViewModels;
-using iText.Kernel.Pdf;
 using iText.Layout;
 using iText.Layout.Element;
 using iText.Layout.Properties;
+using iText.Kernel.Pdf;
+using iText.Kernel.Font;
 using iText.Kernel.Geom;
 using OfficeOpenXml;
 
@@ -196,46 +196,46 @@ namespace ParkIRC.Controllers
 
         private byte[] GeneratePdf(dynamic data)
         {
-            using (var ms = new MemoryStream())
+            using var ms = new MemoryStream();
+            var writer = new PdfWriter(ms);
+            var pdf = new PdfDocument(writer);
+            var document = new Document(pdf, PageSize.A4.Rotate());
+
+            // Add title
+            var title = new Paragraph("Transaction History Report")
+                .SetFontSize(18)
+                .SetTextAlignment(TextAlignment.CENTER);
+            document.Add(title);
+            document.Add(new Paragraph("\n"));
+
+            // Create table
+            var table = new Table(7).UseAllAvailableWidth();
+
+            // Add headers
+            var headers = new[] { "Vehicle Number", "Entry Time", "Exit Time", "Duration", "Amount", "Payment Status", "Status" };
+            foreach (var header in headers)
             {
-                var writer = new PdfWriter(ms);
-                var pdf = new PdfDocument(writer);
-                var document = new Document(pdf, PageSize.A4.Rotate());
-
-                // Add title
-                var title = new Paragraph("Transaction History Report")
-                    .SetFontSize(18)
-                    .SetBold()
-                    .SetTextAlignment(TextAlignment.CENTER);
-                document.Add(title);
-                document.Add(new Paragraph("\n"));
-
-                // Create table
-                var table = new Table(6).UseAllAvailableWidth();
-
-                // Add headers
-                var headers = new[] { "Vehicle Number", "Entry Time", "Exit Time", "Duration", "Amount", "Status" };
-                foreach (var header in headers)
-                {
-                    table.AddCell(new Cell().Add(new Paragraph(header)).SetBold());
-                }
-
-                // Add data
-                foreach (var item in data)
-                {
-                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.EntryTime)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.ExitTime)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Duration)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Status)));
-                }
-
-                document.Add(table);
-                document.Close();
-
-                return ms.ToArray();
+                var cell = new Cell().Add(new Paragraph(header));
+                cell.SetBold(true);
+                table.AddCell(cell);
             }
+
+            // Add data
+            foreach (var item in data)
+            {
+                table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber)));
+                table.AddCell(new Cell().Add(new Paragraph(item.EntryTime)));
+                table.AddCell(new Cell().Add(new Paragraph(item.ExitTime)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Duration)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString())));
+                table.AddCell(new Cell().Add(new Paragraph(item.PaymentStatus)));
+                table.AddCell(new Cell().Add(new Paragraph(item.Status)));
+            }
+
+            document.Add(table);
+            document.Close();
+
+            return ms.ToArray();
         }
     }
-} 
+}

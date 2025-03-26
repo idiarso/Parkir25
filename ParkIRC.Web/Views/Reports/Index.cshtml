@@ -1,0 +1,119 @@
+@model ParkIRC.Models.ViewModels.ReportsViewModel
+
+@{
+    ViewData["Title"] = "Laporan Parkir";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Filter Panel -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <form asp-action="MonthlyReport" method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="date" class="form-label">Bulan</label>
+                            <input type="month" name="date" class="form-control" value="@Model.CurrentDate.ToString("yyyy-MM")" />
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary mt-4">Tampilkan</button>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex gap-2">
+                                <a href="@Url.Action("ExportToPdf", new { date = Model.CurrentDate })" class="btn btn-success mt-4">
+                                    <i class="fas fa-file-pdf"></i> Ekspor ke PDF
+                                </a>
+                                <a href="@Url.Action("ExportToExcel", new { date = Model.CurrentDate })" class="btn btn-info mt-4">
+                                    <i class="fas fa-file-excel"></i> Ekspor ke Excel
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="col-md-4 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Pendapatan Bulan Ini</h5>
+                    <p class="card-text display-6">Rp @string.Format("{0:N0}", Model.MonthlyRevenue)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Transactions -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Transaksi Harian</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Nomor Kendaraan</th>
+                                    <th>Tipe Kendaraan</th>
+                                    <th>Waktu Masuk</th>
+                                    <th>Waktu Keluar</th>
+                                    <th>Biaya</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < Model.DailyTransactions.Count; i++)
+                                {
+                                    var transaction = Model.DailyTransactions[i];
+                                    <tr>
+                                        <td>@(i + 1)</td>
+                                        <td>@transaction.Vehicle.VehicleNumber</td>
+                                        <td>@transaction.Vehicle.VehicleType</td>
+                                        <td>@transaction.EntryTime.ToString("HH:mm")</td>
+                                        <td>@(transaction.ExitTime?.ToString("HH:mm") ?? "Belum keluar")</td>
+                                        <td>Rp @string.Format("{0:N0}", transaction.Amount)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicle Type Statistics -->
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Statistik Tipe Kendaraan</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Tipe Kendaraan</th>
+                                    <th>Jumlah</th>
+                                    <th>Total Pendapatan</th>
+                                    <th>Rata-rata Transaksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var stat in Model.VehicleTypeStats)
+                                {
+                                    <tr>
+                                        <td>@stat.VehicleType</td>
+                                        <td>@stat.Count</td>
+                                        <td>Rp @string.Format("{0:N0}", stat.TotalRevenue)</td>
+                                        <td>Rp @string.Format("{0:N0}", stat.AverageTransaction)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

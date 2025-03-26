@@ -106,25 +106,47 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
 app.UseRouting();
+
+// Add detailed logging for navigation
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    
+    logger.LogInformation($"Request received: {context.Request.Method} {context.Request.Path}");
+    
+    try
+    {
+        await next(context);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, $"Error processing request: {context.Request.Path}");
+        throw;
+    }
+});
+
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseSession();
 
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
-app.MapRazorPages();
-app.MapHub<ParkingHub>("/parkinghub");
-app.MapHub<GateHub>("/gateHub");
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllerRoute(
+        name: "default",
+        pattern: "{controller=Home}/{action=Index}/{id?}");
+    endpoints.MapRazorPages();
+    endpoints.MapHub<ParkingHub>("/parkinghub");
+    endpoints.MapHub<GateHub>("/gateHub");
+});
 
 // Re-enable the seeding data section but with the correct model type
 using (var scope = app.Services.CreateScope())
@@ -133,19 +155,22 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        context.Database.Migrate();
-        
-        // Seed initial data if needed
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         
+        await context.Database.MigrateAsync();
+        
+        // Seed initial data if needed
         // We'll skip the SeedData initialization since we already added our admin user
         // await SeedData.InitializeAsync(services, userManager, roleManager);
+        
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Database initialization completed successfully");
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
+        logger.LogError(ex, "An error occurred while initializing the database");
     }
 }
 

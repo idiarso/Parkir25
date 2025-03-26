@@ -18,10 +18,11 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using ParkIRC.Services;
-using iText.Kernel.Pdf;
 using iText.Layout;
 using iText.Layout.Element;
 using iText.Layout.Properties;
+using iText.Kernel.Pdf;
+using iText.Kernel.Font;
 using iText.Kernel.Geom;
 using OfficeOpenXml;
 using Path = System.IO.Path;
@@ -1640,8 +1641,8 @@ namespace ParkIRC.Controllers
 
                 // Add title
                 var title = new Paragraph("Vehicle History Report")
+                    .SetFont(PdfFontFactory.CreateFont())
                     .SetFontSize(18)
-                    .SetBold()
                     .SetTextAlignment(TextAlignment.CENTER);
                 document.Add(title);
                 document.Add(new Paragraph("\n"));
@@ -1653,20 +1654,22 @@ namespace ParkIRC.Controllers
                 var headers = new[] { "Ticket Number", "Vehicle Number", "Vehicle Type", "Entry Time", "Exit Time", "Duration", "Status", "Amount" };
                 foreach (var header in headers)
                 {
-                    table.AddCell(new Cell().Add(new Paragraph(header)).SetBold());
+                    var cell = new Cell().Add(new Paragraph(header).SetFont(PdfFontFactory.CreateFont()));
+                    cell.SetBold();
+                    table.AddCell(cell);
                 }
 
                 // Add data
                 foreach (var item in data)
                 {
-                    table.AddCell(new Cell().Add(new Paragraph(item.TicketNumber)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleType)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.EntryTime)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.ExitTime)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Duration)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Status)));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.TicketNumber.ToString()).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleType).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.EntryTime).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.ExitTime).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Duration).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Status).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString()).SetFont(PdfFontFactory.CreateFont())));
                 }
 
                 document.Add(table);
@@ -1714,4 +1717,4 @@ namespace ParkIRC.Controllers
             }
         }
     }
-} 
+}
