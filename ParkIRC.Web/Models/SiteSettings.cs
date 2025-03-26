@@ -126,7 +126,7 @@ namespace ParkIRC.Web.Models
         public string LicensePlateRecognitionUrl { get; set; } = string.Empty;
         public string LicensePlateRecognitionApiKey { get; set; } = string.Empty;
         public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
-        public int AuditLogRetentionDays { get; set; }
+        public int AuditLogRetentionDays { get; set; } = 30;
         public int DefaultPageSize { get; set; } = 10;
         public bool EnableMaintenanceMode { get; set; }
         public string MaintenanceMessage { get; set; } = string.Empty;

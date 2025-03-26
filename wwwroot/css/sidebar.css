@@ -127,6 +127,7 @@ Sidebar
   -webkit-box-direction: normal;
       -ms-flex-direction: column;
           flex-direction: column;
+  margin-top: 30px;
 }
 
 .geex-sidebar__menu__item {
@@ -141,6 +142,7 @@ Sidebar
   -webkit-box-direction: normal;
       -ms-flex-direction: column;
           flex-direction: column;
+  margin-bottom: 5px;
 }
 
 .geex-sidebar__menu__item:first-child {
@@ -153,54 +155,73 @@ Sidebar
 
 .geex-sidebar__menu__link {
   width: 100%;
-  display: -webkit-box;
-  display: -ms-flexbox;
   display: flex;
-  gap: 15px;
-  color: var(--body-color);
-  padding: 16px 25px;
-  font-size: 16px;
-  line-height: 24px;
-  border-radius: 18px;
-  -webkit-transition: all 0.3s ease;
+  align-items: center;
+  gap: 10px;
+  color: var(--white-color);
+  padding: 12px 15px;
+  border-radius: 8px;
   transition: all 0.3s ease;
+  text-decoration: none;
 }
 
-@media only screen and (max-width: 575px) {
-  .geex-sidebar__menu__link {
-    gap: 10px;
-    font-size: 14px;
-    padding: 12px 25px;
-  }
-}
-
-.geex-sidebar__menu__link i {
-  font-size: 23px;
-  color: var(--grayThree-color);
-}
-
-@media only screen and (max-width: 575px) {
-  .geex-sidebar__menu__link i {
-    font-size: 20px;
-  }
-}
-
-.geex-sidebar__menu__link svg path {
-  -webkit-transition: all 0.3s ease;
-  transition: all 0.3s ease;
-}
-
-.geex-sidebar__menu__link.default-active, .geex-sidebar__menu__link.active, .geex-sidebar__menu__link:hover {
-  color: var(--primary-color) !important;
-  background: rgba(171, 84, 219, 0.15);
-}
-
-.geex-sidebar__menu__link.default-active i, .geex-sidebar__menu__link.active i, .geex-sidebar__menu__link:hover i {
+.geex-sidebar__menu__link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
   color: var(--primary-color);
 }
 
-.geex-sidebar__menu__link.default-active svg path, .geex-sidebar__menu__link.active svg path, .geex-sidebar__menu__link:hover svg path {
-  fill: var(--primary-color);
+.geex-sidebar__menu__link i {
+  width: 20px;
+  text-align: center;
+}
+
+.geex-sidebar__menu__link.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: var(--primary-color);
+}
+
+.geex-sidebar__menu__sub {
+  margin-left: 20px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.geex-sidebar__menu__sub__link {
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px 0;
+  display: block;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.geex-sidebar__menu__sub__link:hover {
+  color: var(--primary-color);
+}
+
+@media (max-width: 768px) {
+  .geex-sidebar {
+    min-width: 70px;
+    padding: 20px 10px;
+  }
+
+  .geex-sidebar__menu__link {
+    padding: 10px 12px;
+    justify-content: center;
+  }
+
+  .geex-sidebar__menu__link i {
+    margin: 0 auto;
+  }
+
+  .geex-sidebar__menu__sub {
+    display: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .geex-sidebar {
+    transform: translateX(-100%);
+  }
 }
 
 .geex-sidebar__submenu {

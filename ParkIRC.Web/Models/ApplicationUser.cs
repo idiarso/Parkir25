@@ -20,15 +20,11 @@ namespace ParkIRC.Models
         [Display(Name = "Tanggal Lahir")]
         public DateTime? BirthDate { get; set; }
         
-        [StringLength(255)]
-        [Display(Name = "Alamat")]
-        public string? Address { get; set; }
-        
         [Display(Name = "Aktif")]
         public bool IsActive { get; set; } = true;
         
         [Display(Name = "Tanggal Bergabung")]
-        public DateTime JoinDate { get; set; } = DateTime.Now;
+        public DateTime JoinDate { get; set; } = DateTime.UtcNow;
         
         [Display(Name = "Foto Profil")]
         public string? ProfilePhotoPath { get; set; }
@@ -47,15 +43,24 @@ namespace ParkIRC.Models
         
         public virtual ICollection<ParkingTransaction> Transactions { get; set; } = new List<ParkingTransaction>();
         
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         
         public DateTime? LastLogin { get; set; }
+
+        public string? Position { get; set; }
+        public string? EmployeeId { get; set; }
+        public bool IsOnDuty { get; set; }
+        public DateTime? ShiftStartTime { get; set; }
+        public DateTime? ShiftEndTime { get; set; }
+        public string? AccessLevel { get; set; }
+        public int? WorkstationId { get; set; }
         
         public ApplicationUser()
         {
             IsActive = true;
             IsOperator = false;
+            IsOnDuty = false;
         }
     }
 } 

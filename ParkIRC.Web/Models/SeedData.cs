@@ -62,7 +62,8 @@ namespace ParkIRC.Models
                     Email = "admin@parking.com",
                     FirstName = "System",
                     LastName = "Administrator",
-                    EmailConfirmed = true
+                    EmailConfirmed = true,
+                    BirthDate = new DateTime(1990, 1, 1).ToUniversalTime()
                 };
                 
                 var result = await userManager.CreateAsync(adminUser, "Admin@123");
@@ -81,7 +82,8 @@ namespace ParkIRC.Models
                     Email = "staff@parking.com",
                     FirstName = "Staff",
                     LastName = "Member",
-                    EmailConfirmed = true
+                    EmailConfirmed = true,
+                    BirthDate = new DateTime(1995, 1, 1).ToUniversalTime()
                 };
                 
                 var result = await userManager.CreateAsync(staffUser, "Staff@123");
@@ -101,7 +103,8 @@ namespace ParkIRC.Models
                     FirstName = "Gate",
                     LastName = "Operator",
                     EmailConfirmed = true,
-                    IsOperator = true
+                    IsOperator = true,
+                    BirthDate = new DateTime(1998, 1, 1).ToUniversalTime()
                 };
                 
                 var result = await userManager.CreateAsync(operatorUser, "Operator@123");

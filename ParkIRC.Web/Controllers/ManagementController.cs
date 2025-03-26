@@ -18,9 +18,13 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using ParkIRC.Services;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
-using ParkIRC.Web.Extensions;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.Kernel.Geom;
+using OfficeOpenXml;
+using Path = System.IO.Path;
 
 namespace ParkIRC.Controllers
 {
@@ -1221,7 +1225,7 @@ namespace ParkIRC.Controllers
                 }
                 
                 var memoryStream = new MemoryStream();
-                using (var fileStream = new FileStream(backupPath, FileMode.Open))
+                using (var fileStream = new FileStream(backupPath, FileMode.Open, FileAccess.Read))
                 {
                     fileStream.CopyTo(memoryStream);
                 }
@@ -1630,44 +1634,39 @@ namespace ParkIRC.Controllers
         {
             using (var ms = new MemoryStream())
             {
-                var document = new iTextSharp.text.Document(iTextSharp.text.PageSize.A4, 25, 25, 30, 30);
-                var writer = iTextSharp.text.pdf.PdfWriter.GetInstance(document, ms);
-
-                document.Open();
+                var writer = new PdfWriter(ms);
+                var pdf = new PdfDocument(writer);
+                var document = new Document(pdf, PageSize.A4);
 
                 // Add title
-                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
-                var title = new Paragraph("Vehicle History Report", titleFont);
-                title.Alignment = Element.ALIGN_CENTER;
-                title.SpacingAfter = 20f;
+                var title = new Paragraph("Vehicle History Report")
+                    .SetFontSize(18)
+                    .SetBold()
+                    .SetTextAlignment(TextAlignment.CENTER);
                 document.Add(title);
+                document.Add(new Paragraph("\n"));
 
                 // Create table
-                var table = new PdfPTable(8) { WidthPercentage = 100 };
+                var table = new Table(8).UseAllAvailableWidth();
 
                 // Add headers
-                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-                table.AddCell(new PdfPCell(new Phrase("Ticket Number", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Vehicle Number", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Vehicle Type", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Entry Time", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Exit Time", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Duration", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Status", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Amount", headerFont)));
+                var headers = new[] { "Ticket Number", "Vehicle Number", "Vehicle Type", "Entry Time", "Exit Time", "Duration", "Status", "Amount" };
+                foreach (var header in headers)
+                {
+                    table.AddCell(new Cell().Add(new Paragraph(header)).SetBold());
+                }
 
                 // Add data
-                var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
                 foreach (var item in data)
                 {
-                    table.AddCell(new PdfPCell(new Phrase(item.TicketNumber, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.VehicleNumber, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.VehicleType, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.EntryTime, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.ExitTime, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.Duration, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.Status, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.Amount, cellFont)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.TicketNumber)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleType)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.EntryTime)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.ExitTime)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Duration)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Status)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString())));
                 }
 
                 document.Add(table);

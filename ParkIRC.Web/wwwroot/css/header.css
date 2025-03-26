@@ -1,0 +1,353 @@
+/*---------------------------------------
+#. Header
+---------------------------------------*/
+/* BEM Element and Modifier */
+@-webkit-keyframes spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+  }
+  99% {
+    -webkit-transform: rotate(360deg);
+  }
+}
+
+@keyframes spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+            transform: rotate(0deg);
+  }
+  99% {
+    -webkit-transform: rotate(360deg);
+            transform: rotate(360deg);
+  }
+}
+
+/* Header Styles */
+.parkiRC-header {
+    background-color: #ffffff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1010;
+}
+
+.parkiRC-header__wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    padding: 0 20px;
+}
+
+.parkiRC-header__logo-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.parkiRC-header__logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #2c3e50;
+    font-weight: bold;
+    font-size: 20px;
+}
+
+.parkiRC-header__logo .logo-text {
+    margin-left: 5px;
+}
+
+.parkiRC-header__logo i {
+    color: #3498db;
+}
+
+.sidebar-toggle {
+    background: transparent;
+    border: none;
+    margin-left: 15px;
+    cursor: pointer;
+    padding: 5px;
+    color: #2c3e50;
+    font-size: 18px;
+    transition: color 0.3s ease;
+}
+
+.sidebar-toggle:hover {
+    color: #3498db;
+}
+
+.parkiRC-header__right-side {
+    display: flex;
+    align-items: center;
+}
+
+.parkiRC-header__notification {
+    margin-right: 15px;
+    position: relative;
+}
+
+.notification-icon {
+    position: relative;
+    font-size: 18px;
+    color: #555;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.notification-icon:hover {
+    color: #3498db;
+}
+
+.notification-icon .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 10px;
+    padding: 3px 5px;
+}
+
+.parkiRC-header__user-profile {
+    position: relative;
+}
+
+.parkiRC-header__user-profile .dropdown-toggle {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #555;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.parkiRC-header__user-profile .dropdown-toggle:hover {
+    color: #3498db;
+}
+
+.parkiRC-header__user-profile .dropdown-toggle i {
+    font-size: 18px;
+    margin-right: 5px;
+}
+
+.parkiRC-header__user-profile .dropdown-menu {
+    min-width: 200px;
+    padding: 10px 0;
+    margin-top: 15px;
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    border: 1px solid #eee;
+}
+
+.parkiRC-header__user-profile .dropdown-item {
+    padding: 8px 15px;
+    transition: background-color 0.3s ease;
+}
+
+.parkiRC-header__user-profile .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.parkiRC-header__user-profile .dropdown-divider {
+    margin: 5px 0;
+}
+
+/* Breadcrumb Styles */
+.breadcrumb-container {
+    background-color: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.breadcrumb {
+    margin-bottom: 0;
+}
+
+.breadcrumb-item a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.breadcrumb-item.active {
+    color: #6c757d;
+}
+
+/* Footer Styles */
+.parkiRC-footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    padding: 15px 0;
+    margin-top: 30px;
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+    .parkiRC-header__logo-wrapper span:not(.logo-text) {
+        display: none;
+    }
+    
+    .parkiRC-header__user-profile .dropdown-toggle span {
+        display: none;
+    }
+}
+
+/* Main content adjustment */
+.geex-main-content {
+  padding-top: 73px; /* Header height + some spacing */
+  transition: padding-top 0.3s ease;
+}
+
+.geex-main-content.header-hidden {
+  padding-top: 0;
+}
+
+/* Responsive styles */
+@media (max-width: 991px) {
+  .geex-header__mobile-toggle {
+    display: block;
+  }
+
+  .geex-header__menu-wrapper {
+    position: fixed;
+    top: 73px; /* Header height */
+    left: -280px;
+    width: 280px;
+    height: calc(100vh - 73px);
+    background: #fff;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+    transition: left 0.3s ease;
+    overflow-y: auto;
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  .geex-header__menu-wrapper.active {
+    left: 0;
+  }
+
+  .geex-header__menu {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .geex-header__menu__item {
+    width: 100%;
+  }
+
+  .geex-header__menu__link {
+    padding: 0.75rem 1rem;
+    width: 100%;
+  }
+
+  .geex-header__submenu {
+    position: static;
+    box-shadow: none;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    display: none;
+    padding-left: 1.5rem;
+  }
+
+  .geex-header__menu__item.active > .geex-header__submenu {
+    display: block;
+  }
+
+  .geex-header__menu__item.has-children > .geex-header__menu__link:after {
+    content: '\f107';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-left: auto;
+    transition: transform 0.3s ease;
+  }
+
+  .geex-header__menu__item.has-children.active > .geex-header__menu__link:after {
+    transform: rotate(180deg);
+  }
+}
+
+@media (max-width: 576px) {
+  .geex-header__wrapper {
+    padding: 0.5rem 1rem;
+  }
+
+  .geex-header__logo img {
+    height: 32px;
+  }
+
+  .geex-header__menu-wrapper {
+    top: 65px; /* Adjusted header height for mobile */
+    height: calc(100vh - 65px);
+  }
+
+  .geex-main-content {
+    padding-top: 65px;
+  }
+}
+
+html[data-nav="top"] .geex-header {
+  display: block;
+}
+
+html[data-nav="top"] .geex-content__header .geex-content__header__customizer {
+  display: none;
+}
+
+html[data-nav="top"] .geex-sidebar {
+  display: none;
+}
+
+@media only screen and (max-width: 1199px) {
+  html[data-nav="top"] .geex-header {
+    display: none;
+  }
+  html[data-nav="top"] .geex-content__header .geex-content__header__customizer {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+  }
+  html[data-nav="top"] .geex-sidebar {
+    display: block;
+  }
+}
+
+/* Header toggle button */
+.header-toggle {
+    position: fixed;
+    top: 10px;
+    right: 20px;
+    z-index: 1001;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.header-toggle:hover {
+    background: #0056b3;
+    transform: scale(1.05);
+}
+
+.header-toggle.header-hidden {
+    top: 10px;
+    background: #28a745;
+}
+
+.header-toggle i {
+    transition: transform 0.3s ease;
+}
+
+.header-toggle.header-hidden i {
+    transform: rotate(180deg);
+}
+

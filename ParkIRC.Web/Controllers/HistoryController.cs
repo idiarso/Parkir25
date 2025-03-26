@@ -9,8 +9,11 @@ using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using ParkIRC.Web.ViewModels;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using iText.Kernel.Geom;
 using OfficeOpenXml;
 
 namespace ParkIRC.Controllers
@@ -195,40 +198,37 @@ namespace ParkIRC.Controllers
         {
             using (var ms = new MemoryStream())
             {
-                var document = new Document(PageSize.A4.Rotate(), 25, 25, 30, 30);
-                var writer = PdfWriter.GetInstance(document, ms);
-
-                document.Open();
+                var writer = new PdfWriter(ms);
+                var pdf = new PdfDocument(writer);
+                var document = new Document(pdf, PageSize.A4.Rotate());
 
                 // Add title
-                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 18);
-                var title = new Paragraph("Transaction History Report", titleFont);
-                title.Alignment = Element.ALIGN_CENTER;
-                title.SpacingAfter = 20f;
+                var title = new Paragraph("Transaction History Report")
+                    .SetFontSize(18)
+                    .SetBold()
+                    .SetTextAlignment(TextAlignment.CENTER);
                 document.Add(title);
+                document.Add(new Paragraph("\n"));
 
                 // Create table
-                var table = new PdfPTable(6) { WidthPercentage = 100 };
+                var table = new Table(6).UseAllAvailableWidth();
 
                 // Add headers
-                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-                table.AddCell(new PdfPCell(new Phrase("Vehicle Number", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Entry Time", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Exit Time", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Duration", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Amount", headerFont)));
-                table.AddCell(new PdfPCell(new Phrase("Status", headerFont)));
+                var headers = new[] { "Vehicle Number", "Entry Time", "Exit Time", "Duration", "Amount", "Status" };
+                foreach (var header in headers)
+                {
+                    table.AddCell(new Cell().Add(new Paragraph(header)).SetBold());
+                }
 
                 // Add data
-                var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
                 foreach (var item in data)
                 {
-                    table.AddCell(new PdfPCell(new Phrase(item.VehicleNumber, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.EntryTime, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.ExitTime, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.Duration, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.Amount, cellFont)));
-                    table.AddCell(new PdfPCell(new Phrase(item.Status, cellFont)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.EntryTime)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.ExitTime)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Duration)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Status)));
                 }
 
                 document.Add(table);

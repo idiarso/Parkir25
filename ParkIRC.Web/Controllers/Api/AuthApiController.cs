@@ -12,17 +12,17 @@ using System.Collections.Generic;
 
 namespace ParkIRC.Controllers.Api
 {
-    [Route("api/v1/[controller]")]
+    [Route("api/v1/auth")]
     [ApiController]
     public class AuthApiController : ControllerBase
     {
-        private readonly UserManager<Operator> _userManager;
-        private readonly SignInManager<Operator> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IConfiguration _configuration;
 
         public AuthApiController(
-            UserManager<Operator> userManager,
-            SignInManager<Operator> signInManager,
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
             IConfiguration configuration)
         {
             _userManager = userManager;
@@ -49,7 +49,7 @@ namespace ParkIRC.Controllers.Api
             return Ok(new { token = token });
         }
 
-        private string GenerateJwtToken(Operator user)
+        private string GenerateJwtToken(ApplicationUser user)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Secret"]));

@@ -1,8 +1,35 @@
 <li class="nav-item">
+    <a class="nav-link" asp-controller="Home" asp-action="Index">
+        <i class="fas fa-home"></i> Dashboard
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" asp-controller="Gate" asp-action="Operations">
+        <i class="fas fa-tasks"></i> Operasional
+    </a>
+    <ul class="nav flex-column ml-3">
+        <li class="nav-item">
+            <a class="nav-link" asp-controller="Gate" asp-action="Entry">
+                <i class="fas fa-sign-in-alt"></i> Masuk
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" asp-controller="Gate" asp-action="Exit">
+                <i class="fas fa-sign-out-alt"></i> Keluar
+            </a>
+        </li>
+    </ul>
+</li>
+<li class="nav-item">
     <a class="nav-link" asp-controller="Management" asp-action="Index">
         <i class="fas fa-cogs"></i> Pengaturan
     </a>
     <ul class="nav flex-column ml-3">
+        <li class="nav-item">
+            <a class="nav-link" asp-controller="Management" asp-action="ParkingSlots">
+                <i class="fas fa-parking"></i> Slot Parkir
+            </a>
+        </li>
         <li class="nav-item">
             <a class="nav-link" asp-controller="Management" asp-action="Printer">
                 <i class="fas fa-print"></i> Printer
@@ -13,5 +40,20 @@
                 <i class="fas fa-palette"></i> Tampilan Site
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link" asp-controller="Management" asp-action="Users">
+                <i class="fas fa-users"></i> Pengguna
+            </a>
+        </li>
     </ul>
-</li> 
+</li>
+<li class="nav-item">
+    <a class="nav-link" asp-controller="Reports" asp-action="Index">
+        <i class="fas fa-chart-bar"></i> Laporan
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" asp-controller="Home" asp-action="About">
+        <i class="fas fa-info-circle"></i> Tentang
+    </a>
+</li>

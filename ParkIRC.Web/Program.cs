@@ -13,6 +13,11 @@ using Microsoft.AspNetCore.Identity.UI;
 using System;
 using Microsoft.Extensions.Logging;
 using ParkIRC.Web.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,11 +28,39 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+builder.Services.AddDefaultIdentity<ApplicationUser>(options => {
+    options.SignIn.RequireConfirmedAccount = false;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 6;
+})
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 builder.Services.AddControllersWithViews();
+
+// Add JWT Authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+        ValidAudience = builder.Configuration["JwtSettings:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Secret"]))
+    };
+});
 
 // Add SignalR
 builder.Services.AddSignalR();
@@ -58,7 +91,8 @@ builder.Services.AddSession(options =>
 builder.Services.AddScoped<IPrinterService, PrinterService>();
 builder.Services.AddScoped<ICameraService, CameraService>();
 builder.Services.AddScoped<IOfflineDataService, OfflineDataService>();
-builder.Services.AddScoped<ConnectionStatusService>();
+builder.Services.AddSingleton<PrintService>();
+builder.Services.AddHostedService<ConnectionStatusService>();
 builder.Services.Configure<SiteSettings>(builder.Configuration.GetSection("SiteSettings"));
 
 var app = builder.Build();
@@ -92,11 +126,11 @@ app.MapRazorPages();
 app.MapHub<ParkingHub>("/parkinghub");
 app.MapHub<GateHub>("/gateHub");
 
-// Ensure database is created and migrations are applied
+// Re-enable the seeding data section but with the correct model type
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    try 
+    try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
         context.Database.Migrate();
@@ -104,7 +138,9 @@ using (var scope = app.Services.CreateScope())
         // Seed initial data if needed
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-        await SeedData.InitializeAsync(services, userManager, roleManager);
+        
+        // We'll skip the SeedData initialization since we already added our admin user
+        // await SeedData.InitializeAsync(services, userManager, roleManager);
     }
     catch (Exception ex)
     {
@@ -113,4 +149,5 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.Run();
+// Use the port 5001
+app.Run("http://localhost:5001");
