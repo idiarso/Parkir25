@@ -139,6 +139,14 @@
     </div>
 </div>
 
+<div id="loadingSpinner" style="display: none;">
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         $(document).ready(function () {
@@ -167,16 +175,39 @@
                 loadPreview(date);
             });
 
+            // Fungsi untuk menangani ekspor dengan indikator loading
+            function handleExport(url) {
+                // Tampilkan spinner
+                $('#loadingSpinner').show();
+
+                // Buka file di tab baru
+                const newWindow = window.open(url, '_blank');
+
+                // Tunggu beberapa detik untuk memastikan file mulai diunduh
+                setTimeout(() => {
+                    // Sembunyikan spinner
+                    $('#loadingSpinner').hide();
+
+                    // Periksa apakah window masih ada (belum ditutup oleh browser)
+                    if (newWindow && !newWindow.closed) {
+                        // Tambahkan event listener untuk menutup window
+                        newWindow.addEventListener('load', function() {
+                            newWindow.close();
+                        });
+                    }
+                }, 2000); // Tunggu 2 detik
+            }
+
             // Klik tombol ekspor PDF
             $('#previewModal').on('click', '#exportPdf', function () {
                 const url = '@Url.Action("ExportToPdf", "Reports")' + '?date=' + currentPreviewDate;
-                window.open(url, '_blank');
+                handleExport(url);
             });
 
             // Klik tombol ekspor Excel
             $('#previewModal').on('click', '#exportExcel', function () {
                 const url = '@Url.Action("ExportToExcel", "Reports")' + '?date=' + currentPreviewDate;
-                window.open(url, '_blank');
+                handleExport(url);
             });
         });
     </script>
