@@ -42,6 +42,11 @@
                                 <div class="modal-body">
                                     <div id="previewContent"></div>
                                 </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                                    <button type="button" class="btn btn-success" id="exportPdf">Ekspor ke PDF</button>
+                                    <button type="button" class="btn btn-info" id="exportExcel">Ekspor ke Excel</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -137,9 +142,10 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
-            $('#previewBtn').click(function () {
-                const date = $('#date').val();
-                
+            let currentPreviewDate = null;
+
+            // Fungsi untuk memuat pratinjau
+            function loadPreview(date) {
                 $.ajax({
                     url: '@Url.Action("PreviewReport", "Reports")',
                     type: 'GET',
@@ -147,11 +153,30 @@
                     success: function (result) {
                         $('#previewContent').html(result);
                         $('#previewModal').modal('show');
+                        currentPreviewDate = date;
                     },
                     error: function () {
                         alert('Gagal memuat pratinjau laporan');
                     }
                 });
+            }
+
+            // Klik tombol pratinjau
+            $('#previewBtn').click(function () {
+                const date = $('#date').val();
+                loadPreview(date);
+            });
+
+            // Klik tombol ekspor PDF
+            $('#previewModal').on('click', '#exportPdf', function () {
+                const url = '@Url.Action("ExportToPdf", "Reports")' + '?date=' + currentPreviewDate;
+                window.open(url, '_blank');
+            });
+
+            // Klik tombol ekspor Excel
+            $('#previewModal').on('click', '#exportExcel', function () {
+                const url = '@Url.Action("ExportToExcel", "Reports")' + '?date=' + currentPreviewDate;
+                window.open(url, '_blank');
             });
         });
     </script>
