@@ -17,6 +17,7 @@
                         </div>
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-primary mt-4">Tampilkan</button>
+                            <button type="button" class="btn btn-secondary mt-4" id="previewBtn">Pratinjau</button>
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex gap-2">
@@ -29,6 +30,21 @@
                             </div>
                         </div>
                     </form>
+
+                    <!-- Modal Pratinjau -->
+                    <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="previewModalLabel">Pratinjau Laporan</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="previewContent"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -117,3 +133,26 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#previewBtn').click(function () {
+                const date = $('#date').val();
+                
+                $.ajax({
+                    url: '@Url.Action("PreviewReport", "Reports")',
+                    type: 'GET',
+                    data: { startDate: date, endDate: date },
+                    success: function (result) {
+                        $('#previewContent').html(result);
+                        $('#previewModal').modal('show');
+                    },
+                    error: function () {
+                        alert('Gagal memuat pratinjau laporan');
+                    }
+                });
+            });
+        });
+    </script>
+}

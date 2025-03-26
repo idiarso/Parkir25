@@ -1,0 +1,83 @@
+@model ReportsViewModel
+
+<div class="report-preview">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title">Pratinjau Laporan</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h6>Periode: @Model.CurrentDate.ToString("MMMM yyyy")</h6>
+                    <p>Total Pendapatan: Rp @Model.MonthlyRevenue.ToString("N0")</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title">Statistik Kendaraan</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Jenis Kendaraan</th>
+                                        <th>Jumlah</th>
+                                        <th>Pendapatan</th>
+                                        <th>Rata-rata</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var stat in Model.VehicleTypeStats)
+                                    {
+                                        <tr>
+                                            <td>@stat.VehicleType</td>
+                                            <td>@stat.Count</td>
+                                            <td>Rp @stat.TotalRevenue.ToString("N0")</td>
+                                            <td>Rp @stat.AverageTransaction.ToString("N0")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title">Transaksi Terakhir</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>No. Tiket</th>
+                                        <th>No. Kendaraan</th>
+                                        <th>Waktu Masuk</th>
+                                        <th>Waktu Keluar</th>
+                                        <th>Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var trans in Model.DailyTransactions.Take(5))
+                                    {
+                                        <tr>
+                                            <td>@trans.TransactionNumber</td>
+                                            <td>@trans.Vehicle.VehicleNumber</td>
+                                            <td>@trans.EntryTime.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td>@(trans.ExitTime?.ToString("dd/MM/yyyy HH:mm") ?? "Belum keluar")</td>
+                                            <td>Rp @trans.Amount.ToString("N0")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

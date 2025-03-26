@@ -110,6 +110,45 @@ namespace ParkIRC.Controllers
             }
         }
 
+        public async Task<IActionResult> PreviewReport(DateTime? startDate, DateTime? endDate, string vehicleType)
+        {
+            try
+            {
+                var model = new ReportsViewModel
+                {
+                    DailyTransactions = await _context.ParkingTransactions
+                        .Include(t => t.Vehicle)
+                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                        .OrderByDescending(t => t.EntryTime)
+                        .ToListAsync(),
+                    MonthlyRevenue = await _context.ParkingTransactions
+                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                        .SumAsync(t => t.Amount),
+                    VehicleTypeStats = await _context.ParkingTransactions
+                        .Include(t => t.Vehicle)
+                        .Where(t => t.EntryTime >= startDate && t.EntryTime <= endDate)
+                        .GroupBy(t => t.Vehicle.VehicleType)
+                        .Select(g => new VehicleTypeStats
+                        {
+                            VehicleType = g.Key,
+                            Count = g.Count(),
+                            TotalRevenue = g.Sum(t => t.Amount),
+                            AverageTransaction = g.Average(t => t.Amount)
+                        })
+                        .OrderByDescending(g => g.TotalRevenue)
+                        .ToListAsync(),
+                    CurrentDate = startDate ?? DateTime.Today
+                };
+
+                return PartialView("_ReportPreview", model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating report preview");
+                return StatusCode(500, "Error generating report preview");
+            }
+        }
+
         public async Task<IActionResult> ExportToPdf(DateTime? date)
         {
             try
