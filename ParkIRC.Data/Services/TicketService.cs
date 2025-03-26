@@ -1,6 +1,6 @@
 using System;
 using System.Threading.Tasks;
-using ParkIRC.Shared.Models;
+using ParkIRC.Data.Models;
 using ParkIRC.Shared.Interfaces;
 
 namespace ParkIRC.Data.Services
