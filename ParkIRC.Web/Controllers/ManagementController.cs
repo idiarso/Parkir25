@@ -1654,22 +1654,22 @@ namespace ParkIRC.Controllers
                 var headers = new[] { "Ticket Number", "Vehicle Number", "Vehicle Type", "Entry Time", "Exit Time", "Duration", "Status", "Amount" };
                 foreach (var header in headers)
                 {
-                    var cell = new Cell().Add(new Paragraph(header).SetFont(PdfFontFactory.CreateFont()));
-                    cell.SetBold();
+                    var cell = new Cell().Add(new Paragraph(header));
+                    cell.SetFont(PdfFontFactory.CreateFont());
                     table.AddCell(cell);
                 }
 
                 // Add data
                 foreach (var item in data)
                 {
-                    table.AddCell(new Cell().Add(new Paragraph(item.TicketNumber.ToString()).SetFont(PdfFontFactory.CreateFont())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber).SetFont(PdfFontFactory.CreateFont())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleType).SetFont(PdfFontFactory.CreateFont())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.EntryTime).SetFont(PdfFontFactory.CreateFont())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.ExitTime).SetFont(PdfFontFactory.CreateFont())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Duration).SetFont(PdfFontFactory.CreateFont())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Status).SetFont(PdfFontFactory.CreateFont())));
-                    table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString()).SetFont(PdfFontFactory.CreateFont())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.TicketNumber.ToString())));
+                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleNumber)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.VehicleType)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.EntryTime)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.ExitTime)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Duration)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Status)));
+                    table.AddCell(new Cell().Add(new Paragraph(item.Amount.ToString())));
                 }
 
                 document.Add(table);
